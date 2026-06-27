@@ -1,0 +1,44 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Comixa.Desktop.ViewModels"
+        x:Class="Comixa.Desktop.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="{Binding Title}"
+        Width="1120"
+        Height="720"
+        MinWidth="860"
+        MinHeight="560">
+  <Grid RowDefinitions="Auto,*">
+    <Border Padding="20,14" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1">
+      <StackPanel>
+        <TextBlock Text="{Binding Title}" FontSize="20" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Phase}" Opacity="0.72" />
+      </StackPanel>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="280,*">
+      <Border Padding="20" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,1,0">
+        <StackPanel Spacing="12">
+          <Button Content="Add Folder" HorizontalAlignment="Stretch" />
+          <TextBlock Text="Library" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding EmptyLibraryMessage}" TextWrapping="Wrap" Opacity="0.72" />
+        </StackPanel>
+      </Border>
+
+      <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="28">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+          <TextBlock Text="Reader workspace" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" />
+          <TextBlock Text="{Binding ReaderPlaceholder}" TextWrapping="Wrap" MaxWidth="520" TextAlignment="Center" Opacity="0.72" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Padding="0,18,0,0">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+            <Button Content="Previous" IsEnabled="False" />
+            <Button Content="Fit Page" IsEnabled="False" />
+            <Button Content="Next" IsEnabled="False" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Grid>
+  </Grid>
+</Window>
