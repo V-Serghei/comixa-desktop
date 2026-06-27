@@ -6,6 +6,7 @@ public sealed class ComicBookListItemViewModel
 {
     public ComicBookListItemViewModel(ComicBook comicBook)
     {
+        ComicBook = comicBook;
         Title = comicBook.Title;
         SeriesName = comicBook.SeriesName;
         IssueNumber = comicBook.IssueNumber;
@@ -13,6 +14,8 @@ public sealed class ComicBookListItemViewModel
         PageCount = comicBook.PageCount;
         FilePath = comicBook.FilePath;
     }
+
+    public ComicBook ComicBook { get; }
 
     public string Title { get; }
 
@@ -27,6 +30,8 @@ public sealed class ComicBookListItemViewModel
     public string FilePath { get; }
 
     public string Metadata => IssueNumber is null
-        ? $"{Format} - {PageCount} pages"
-        : $"{Format} - issue {IssueNumber} - {PageCount} pages";
+        ? $"{Format} · {PageLabel}"
+        : $"{Format} · issue {IssueNumber} · {PageLabel}";
+
+    private string PageLabel => PageCount == 0 ? "pages unknown" : $"{PageCount} pages";
 }

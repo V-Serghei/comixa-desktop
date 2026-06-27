@@ -74,6 +74,7 @@ docs/
   product.md
   architecture.md
   sync-model.md
+  supported-formats.md
   roadmap.md
   git-flow.md
   ai-context.md

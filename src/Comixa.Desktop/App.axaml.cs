@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Comixa.Desktop.Reader;
 using Comixa.Desktop.Services;
 using Comixa.Desktop.ViewModels;
 using Comixa.Desktop.Views;
@@ -22,7 +23,9 @@ public sealed partial class App : Application
             var mainWindow = new MainWindow();
             mainWindow.DataContext = new MainWindowViewModel(
                 new AvaloniaFolderPicker(mainWindow),
-                new LocalComicLibraryScanner());
+                new LocalComicLibraryScanner(),
+                new JsonUserLibrarySettingsStore(),
+                new LocalPagePreviewLoader());
             desktop.MainWindow = mainWindow;
         }
 
