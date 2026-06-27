@@ -2,6 +2,7 @@ using System.IO.Compression;
 using Avalonia.Media.Imaging;
 using Comixa.Core.Models;
 using Comixa.Reader.Scanning;
+using ImageMagick;
 
 namespace Comixa.Desktop.Reader;
 
@@ -133,16 +134,26 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader
 
     private static async Task<Bitmap?> LoadBitmapAsync(Stream source, CancellationToken cancellationToken)
     {
+        using var memory = new MemoryStream();
+        await source.CopyToAsync(memory, cancellationToken);
+        var bytes = memory.ToArray();
+
         try
         {
-            using var memory = new MemoryStream();
-            await source.CopyToAsync(memory, cancellationToken);
-            memory.Position = 0;
-            return new Bitmap(memory);
+            return new Bitmap(new MemoryStream(bytes));
         }
-        catch (ArgumentException)
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
         {
-            return null;
+            try
+            {
+                using var image = new MagickImage(bytes);
+                image.Format = MagickFormat.Png;
+                return new Bitmap(new MemoryStream(image.ToByteArray()));
+            }
+            catch (MagickException)
+            {
+                return null;
+            }
         }
     }
 }

@@ -16,6 +16,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private string _statusMessage = "Choose a local folder to begin building your comic library.";
     private string _readerStatus = "Select a book to open the reader.";
     private ComicBookListItemViewModel? _selectedBook;
+    private Bitmap? _currentPageImage;
     private int _currentPageIndex;
 
     public MainWindowViewModel(
@@ -45,8 +46,6 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     public ObservableCollection<ComicBookListItemViewModel> Books { get; } = [];
 
-    public ObservableCollection<ReaderPageViewModel> ReaderPages { get; } = [];
-
     public AsyncRelayCommand ScanFolderCommand { get; }
 
     public RelayCommand PreviousPageCommand { get; }
@@ -67,13 +66,29 @@ public sealed class MainWindowViewModel : ViewModelBase
             CurrentPageIndex = 0;
             RaisePropertyChanged();
             RaisePropertyChanged(nameof(HasSelectedBook));
-            _ = LoadReaderPagesAsync();
+            _ = LoadCurrentPageAsync();
         }
     }
 
     public bool HasSelectedBook => SelectedBook is not null;
 
-    public bool HasReaderPages => ReaderPages.Count > 0;
+    public Bitmap? CurrentPageImage
+    {
+        get => _currentPageImage;
+        private set
+        {
+            if (_currentPageImage == value)
+            {
+                return;
+            }
+
+            _currentPageImage = value;
+            RaisePropertyChanged();
+            RaisePropertyChanged(nameof(HasCurrentPageImage));
+        }
+    }
+
+    public bool HasCurrentPageImage => CurrentPageImage is not null;
 
     public int CurrentPageIndex
     {
@@ -104,7 +119,7 @@ public sealed class MainWindowViewModel : ViewModelBase
 
             return SelectedBook.ComicBook.PageCount == 0
                 ? "Pages unknown"
-                : $"{SelectedBook.ComicBook.PageCount} pages";
+                : $"{CurrentPageIndex + 1} / {SelectedBook.ComicBook.PageCount}";
         }
     }
 
@@ -176,8 +191,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         StatusMessage = "Scanning local library...";
         Books.Clear();
         SelectedBook = null;
-        ReaderPages.Clear();
-        RaisePropertyChanged(nameof(HasReaderPages));
+        CurrentPageImage = null;
 
         var scannedFiles = new List<ScannedComicFile>();
         foreach (var folder in folders.Where(Directory.Exists))
@@ -212,13 +226,12 @@ public sealed class MainWindowViewModel : ViewModelBase
         }
 
         CurrentPageIndex = nextPage;
-        RaisePropertyChanged(nameof(CurrentPageLabel));
+        _ = LoadCurrentPageAsync();
     }
 
-    private async Task LoadReaderPagesAsync()
+    private async Task LoadCurrentPageAsync()
     {
-        ReaderPages.Clear();
-        RaisePropertyChanged(nameof(HasReaderPages));
+        CurrentPageImage = null;
 
         if (SelectedBook is null)
         {
@@ -237,16 +250,10 @@ public sealed class MainWindowViewModel : ViewModelBase
         }
 
         ReaderStatus = $"Loading {comicBook.Title}...";
-        var pages = await _pagePreviewLoader.LoadPagesAsync(comicBook);
-        for (var i = 0; i < pages.Count; i++)
-        {
-            ReaderPages.Add(new ReaderPageViewModel(i + 1, pages[i]));
-        }
-
-        ReaderStatus = ReaderPages.Count == 0
+        CurrentPageImage = await _pagePreviewLoader.LoadPageAsync(comicBook, CurrentPageIndex);
+        ReaderStatus = CurrentPageImage is null
             ? "No renderable page was found for this item."
             : comicBook.Title;
-        RaisePropertyChanged(nameof(HasReaderPages));
         RaisePropertyChanged(nameof(CurrentPageLabel));
         PreviousPageCommand.RaiseCanExecuteChanged();
         NextPageCommand.RaiseCanExecuteChanged();

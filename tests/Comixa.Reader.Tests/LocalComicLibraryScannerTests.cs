@@ -20,7 +20,7 @@ public sealed class LocalComicLibraryScannerTests
             Directory.CreateDirectory(Path.GetDirectoryName(zipPath)!);
             Directory.CreateDirectory(imageFolderPath);
 
-            CreateZip(cbzPath, "001.jpg", "002.png", "notes.txt");
+            CreateZip(cbzPath, "001.jpg", "002.png", "003.avif", "notes.txt");
             CreateZip(zipPath, "cover.webp");
             CreateZip(Path.Join(root, "backup.zip"), "notes.txt");
             File.WriteAllText(pdfPath, "%PDF /Type /Page /Type /Page");
@@ -33,7 +33,7 @@ public sealed class LocalComicLibraryScannerTests
             var files = await scanner.ScanAsync(root);
 
             Assert.Equal(4, files.Count);
-            Assert.Contains(files, file => file.Format == ComicFormat.Cbz && file.PageCount == 2);
+            Assert.Contains(files, file => file.Format == ComicFormat.Cbz && file.PageCount == 3);
             Assert.Contains(files, file => file.Format == ComicFormat.Zip && file.PageCount == 1);
             Assert.Contains(files, file => file.Format == ComicFormat.Pdf && file.PageCount == 2);
             Assert.Contains(files, file => file.Format == ComicFormat.ImageFolder && file.PageCount == 2);

@@ -90,19 +90,11 @@
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
           <Grid MinHeight="520">
-            <ItemsControl ItemsSource="{Binding ReaderPages}" Margin="24" IsVisible="{Binding HasReaderPages}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:ReaderPageViewModel">
-                  <Grid RowDefinitions="Auto,Auto" Margin="0,0,0,28">
-                    <TextBlock Text="{Binding Label}" Foreground="#80FFFFFF" FontSize="12" HorizontalAlignment="Center" Margin="0,0,0,8" />
-                    <Border Grid.Row="1" Background="#050505">
-                      <Image Source="{Binding Image}" Stretch="Uniform" MaxWidth="920" HorizontalAlignment="Center" />
-                    </Border>
-                  </Grid>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" IsVisible="{Binding !HasReaderPages}">
+            <Image Source="{Binding CurrentPageImage}"
+                   Stretch="Uniform"
+                   Margin="24"
+                   IsVisible="{Binding HasCurrentPageImage}" />
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" IsVisible="{Binding !HasCurrentPageImage}">
               <TextBlock Text="Reader workspace" Foreground="White" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" />
               <TextBlock Text="{Binding ReaderPlaceholder}" Foreground="#B3FFFFFF" TextWrapping="Wrap" MaxWidth="520" TextAlignment="Center" />
             </StackPanel>

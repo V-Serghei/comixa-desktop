@@ -20,6 +20,7 @@ Comixa Desktop is local-first. Format support should be explicit and honest.
 - `.jpeg`
 - `.png`
 - `.webp`
+- `.avif`
 - `.gif`
 - `.bmp`
 - `.tif`

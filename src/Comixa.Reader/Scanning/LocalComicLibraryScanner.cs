@@ -27,6 +27,7 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
         ".jpeg",
         ".png",
         ".webp",
+        ".avif",
         ".gif",
         ".bmp",
         ".tif",
