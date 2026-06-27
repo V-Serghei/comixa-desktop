@@ -12,7 +12,7 @@
   <Grid RowDefinitions="64,*">
     <Border Background="{DynamicResource ComixaSurfaceBrush}" BorderBrush="{DynamicResource ComixaOutlineBrush}" BorderThickness="0,0,0,1">
       <Grid ColumnDefinitions="Auto,*,Auto" Margin="18,0">
-        <TextBlock Grid.Column="0" Text="☰" FontSize="22" VerticalAlignment="Center" Margin="0,0,16,0" />
+        <TextBlock Grid.Column="0" Text="Menu" FontSize="13" VerticalAlignment="Center" Margin="0,0,16,0" />
         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
           <TextBlock Text="{Binding Title}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
           <TextBlock Text="{Binding Phase}" FontSize="12" Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
@@ -47,7 +47,7 @@
               </ItemsPanelTemplate>
             </ListBox.ItemsPanel>
             <ListBox.ItemTemplate>
-              <DataTemplate>
+              <DataTemplate x:DataType="vm:ComicBookListItemViewModel">
                 <Border Width="160"
                         MinHeight="250"
                         Margin="6"
@@ -57,10 +57,15 @@
                         CornerRadius="8">
                   <Grid RowDefinitions="210,Auto">
                     <Border Background="{DynamicResource ComixaSurfaceVariantBrush}" CornerRadius="8,8,0,0">
-                      <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
-                        <TextBlock Text="{Binding Format}" Foreground="{DynamicResource ComixaPrimaryBrush}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                        <TextBlock Text="{Binding PageCount}" Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" FontSize="12" HorizontalAlignment="Center" />
-                      </StackPanel>
+                      <Grid>
+                        <Image Source="{Binding CoverImage}"
+                               Stretch="UniformToFill"
+                               IsVisible="{Binding HasCoverImage}" />
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8" IsVisible="{Binding !HasCoverImage}">
+                          <TextBlock Text="{Binding Format}" Foreground="{DynamicResource ComixaPrimaryBrush}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                          <TextBlock Text="{Binding PageCount}" Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" FontSize="12" HorizontalAlignment="Center" />
+                        </StackPanel>
+                      </Grid>
                     </Border>
                     <StackPanel Grid.Row="1" Margin="10" Spacing="4">
                       <TextBlock Text="{Binding Title}" Foreground="{DynamicResource ComixaOnSurfaceBrush}" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" />
@@ -85,8 +90,19 @@
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
           <Grid MinHeight="520">
-            <Image Source="{Binding CurrentPageImage}" Stretch="Uniform" Margin="24" />
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" IsVisible="{Binding !HasCurrentPageImage}">
+            <ItemsControl ItemsSource="{Binding ReaderPages}" Margin="24" IsVisible="{Binding HasReaderPages}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ReaderPageViewModel">
+                  <Grid RowDefinitions="Auto,Auto" Margin="0,0,0,28">
+                    <TextBlock Text="{Binding Label}" Foreground="#80FFFFFF" FontSize="12" HorizontalAlignment="Center" Margin="0,0,0,8" />
+                    <Border Grid.Row="1" Background="#050505">
+                      <Image Source="{Binding Image}" Stretch="Uniform" MaxWidth="920" HorizontalAlignment="Center" />
+                    </Border>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" IsVisible="{Binding !HasReaderPages}">
               <TextBlock Text="Reader workspace" Foreground="White" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" />
               <TextBlock Text="{Binding ReaderPlaceholder}" Foreground="#B3FFFFFF" TextWrapping="Wrap" MaxWidth="520" TextAlignment="Center" />
             </StackPanel>

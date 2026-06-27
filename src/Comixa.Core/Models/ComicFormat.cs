@@ -5,5 +5,9 @@ public enum ComicFormat
     Cbz,
     Zip,
     Pdf,
-    ImageFolder
+    ImageFolder,
+    Cbr,
+    Rar,
+    SevenZip,
+    Epub
 }

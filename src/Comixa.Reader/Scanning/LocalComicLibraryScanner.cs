@@ -11,6 +11,16 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
         ".zip"
     };
 
+    private static readonly Dictionary<string, ComicFormat> DetectedOnlyExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".pdf"] = ComicFormat.Pdf,
+        [".cbr"] = ComicFormat.Cbr,
+        [".rar"] = ComicFormat.Rar,
+        [".7z"] = ComicFormat.SevenZip,
+        [".cb7"] = ComicFormat.SevenZip,
+        [".epub"] = ComicFormat.Epub
+    };
+
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg",
@@ -18,7 +28,9 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
         ".png",
         ".webp",
         ".gif",
-        ".bmp"
+        ".bmp",
+        ".tif",
+        ".tiff"
     };
 
     public Task<IReadOnlyList<ScannedComicFile>> ScanAsync(string rootFolder, CancellationToken cancellationToken = default)
@@ -82,14 +94,14 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
                 pageCount);
         }
 
-        if (extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+        if (DetectedOnlyExtensions.TryGetValue(extension, out var detectedFormat))
         {
             return new ScannedComicFile(
                 fileInfo.FullName,
                 fileInfo.Name,
-                ComicFormat.Pdf,
+                detectedFormat,
                 fileInfo.Length,
-                EstimatePdfPageCount(path));
+                detectedFormat == ComicFormat.Pdf ? EstimatePdfPageCount(path) : 0);
         }
 
         return null;

@@ -16,7 +16,6 @@ public sealed class MainWindowViewModel : ViewModelBase
     private string _statusMessage = "Choose a local folder to begin building your comic library.";
     private string _readerStatus = "Select a book to open the reader.";
     private ComicBookListItemViewModel? _selectedBook;
-    private Bitmap? _currentPageImage;
     private int _currentPageIndex;
 
     public MainWindowViewModel(
@@ -31,10 +30,10 @@ public sealed class MainWindowViewModel : ViewModelBase
         _pagePreviewLoader = pagePreviewLoader;
         ScanFolderCommand = new AsyncRelayCommand(ScanFolderAsync);
         PreviousPageCommand = new RelayCommand(
-            () => _ = MovePageAsync(-1),
+            () => MovePage(-1),
             () => SelectedBook is not null && CurrentPageIndex > 0);
         NextPageCommand = new RelayCommand(
-            () => _ = MovePageAsync(1),
+            () => MovePage(1),
             () => SelectedBook is not null && CurrentPageIndex + 1 < SelectedBook.ComicBook.PageCount);
 
         _ = LoadSavedFoldersAsync();
@@ -45,6 +44,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     public string Phase => "MVP 1 - Local Desktop Reader Core";
 
     public ObservableCollection<ComicBookListItemViewModel> Books { get; } = [];
+
+    public ObservableCollection<ReaderPageViewModel> ReaderPages { get; } = [];
 
     public AsyncRelayCommand ScanFolderCommand { get; }
 
@@ -66,29 +67,13 @@ public sealed class MainWindowViewModel : ViewModelBase
             CurrentPageIndex = 0;
             RaisePropertyChanged();
             RaisePropertyChanged(nameof(HasSelectedBook));
-            _ = LoadCurrentPageAsync();
+            _ = LoadReaderPagesAsync();
         }
     }
 
     public bool HasSelectedBook => SelectedBook is not null;
 
-    public Bitmap? CurrentPageImage
-    {
-        get => _currentPageImage;
-        private set
-        {
-            if (_currentPageImage == value)
-            {
-                return;
-            }
-
-            _currentPageImage = value;
-            RaisePropertyChanged();
-            RaisePropertyChanged(nameof(HasCurrentPageImage));
-        }
-    }
-
-    public bool HasCurrentPageImage => CurrentPageImage is not null;
+    public bool HasReaderPages => ReaderPages.Count > 0;
 
     public int CurrentPageIndex
     {
@@ -119,7 +104,7 @@ public sealed class MainWindowViewModel : ViewModelBase
 
             return SelectedBook.ComicBook.PageCount == 0
                 ? "Pages unknown"
-                : $"{CurrentPageIndex + 1} / {SelectedBook.ComicBook.PageCount}";
+                : $"{SelectedBook.ComicBook.PageCount} pages";
         }
     }
 
@@ -191,6 +176,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         StatusMessage = "Scanning local library...";
         Books.Clear();
         SelectedBook = null;
+        ReaderPages.Clear();
+        RaisePropertyChanged(nameof(HasReaderPages));
 
         var scannedFiles = new List<ScannedComicFile>();
         foreach (var folder in folders.Where(Directory.Exists))
@@ -207,9 +194,11 @@ public sealed class MainWindowViewModel : ViewModelBase
         StatusMessage = HasBooks
             ? $"Found {Books.Count} local comic item(s)."
             : "No CBZ, ZIP, PDF, or image folders were found.";
+
+        await LoadCoversAsync();
     }
 
-    private async Task MovePageAsync(int delta)
+    private void MovePage(int delta)
     {
         if (SelectedBook is null)
         {
@@ -223,36 +212,52 @@ public sealed class MainWindowViewModel : ViewModelBase
         }
 
         CurrentPageIndex = nextPage;
-        await LoadCurrentPageAsync();
+        RaisePropertyChanged(nameof(CurrentPageLabel));
     }
 
-    private async Task LoadCurrentPageAsync()
+    private async Task LoadReaderPagesAsync()
     {
+        ReaderPages.Clear();
+        RaisePropertyChanged(nameof(HasReaderPages));
+
         if (SelectedBook is null)
         {
-            CurrentPageImage = null;
             ReaderStatus = "Select a book to open the reader.";
             return;
         }
 
         var comicBook = SelectedBook.ComicBook;
-        if (comicBook.Format == ComicFormat.Pdf)
+        if (comicBook.Format is ComicFormat.Pdf or ComicFormat.Cbr or ComicFormat.Rar or ComicFormat.SevenZip or ComicFormat.Epub)
         {
-            CurrentPageImage = null;
-            ReaderStatus = "PDF detected. PDF rendering is not implemented yet.";
+            ReaderStatus = $"{comicBook.Format} detected. Rendering for this format is not implemented yet.";
             RaisePropertyChanged(nameof(CurrentPageLabel));
             PreviousPageCommand.RaiseCanExecuteChanged();
             NextPageCommand.RaiseCanExecuteChanged();
             return;
         }
 
-        ReaderStatus = $"Opening {comicBook.Title}...";
-        CurrentPageImage = await _pagePreviewLoader.LoadPageAsync(comicBook, CurrentPageIndex);
-        ReaderStatus = CurrentPageImage is null
+        ReaderStatus = $"Loading {comicBook.Title}...";
+        var pages = await _pagePreviewLoader.LoadPagesAsync(comicBook);
+        for (var i = 0; i < pages.Count; i++)
+        {
+            ReaderPages.Add(new ReaderPageViewModel(i + 1, pages[i]));
+        }
+
+        ReaderStatus = ReaderPages.Count == 0
             ? "No renderable page was found for this item."
             : comicBook.Title;
+        RaisePropertyChanged(nameof(HasReaderPages));
         RaisePropertyChanged(nameof(CurrentPageLabel));
         PreviousPageCommand.RaiseCanExecuteChanged();
         NextPageCommand.RaiseCanExecuteChanged();
+    }
+
+    private async Task LoadCoversAsync()
+    {
+        foreach (var book in Books)
+        {
+            var cover = await _pagePreviewLoader.LoadPageAsync(book.ComicBook, 0);
+            book.SetCoverImage(cover);
+        }
     }
 }
