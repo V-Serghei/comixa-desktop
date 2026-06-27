@@ -1,7 +1,17 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Comixa.Desktop.App"
-             RequestedThemeVariant="Default">
+             RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <SolidColorBrush x:Key="ComixaBackgroundBrush" Color="#0B0F12" />
+    <SolidColorBrush x:Key="ComixaSurfaceBrush" Color="#0E131A" />
+    <SolidColorBrush x:Key="ComixaSurfaceVariantBrush" Color="#1A212B" />
+    <SolidColorBrush x:Key="ComixaPrimaryBrush" Color="#00D47B" />
+    <SolidColorBrush x:Key="ComixaSecondaryBrush" Color="#A78BFA" />
+    <SolidColorBrush x:Key="ComixaOnSurfaceBrush" Color="#E6EBF2" />
+    <SolidColorBrush x:Key="ComixaOnSurfaceVariantBrush" Color="#A8B3C2" />
+    <SolidColorBrush x:Key="ComixaOutlineBrush" Color="#3A4654" />
+  </Application.Resources>
   <Application.Styles>
     <FluentTheme />
   </Application.Styles>
