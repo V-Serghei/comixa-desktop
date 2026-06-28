@@ -56,6 +56,17 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
         ? $"{Format} · {PageLabel}"
         : $"{Format} · #{IssueNumber} · {PageLabel}";
 
+    public string ReadStatusLabel
+    {
+        get
+        {
+            if (_progress is null) return "";
+            if (_progress.PageNumber == 0) return "Started";
+            if (PageCount > 0 && _progress.PageNumber >= PageCount - 1) return "Read ✓";
+            return $"Page {_progress.PageNumber + 1} of {PageCount}";
+        }
+    }
+
     private string PageLabel => PageCount == 0 ? "? pages" : $"{PageCount} pages";
 
     public void SetCoverImage(Bitmap? coverImage) => CoverImage = coverImage;
@@ -66,5 +77,6 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
         RaisePropertyChanged(nameof(Progress));
         RaisePropertyChanged(nameof(ProgressValue));
         RaisePropertyChanged(nameof(HasProgress));
+        RaisePropertyChanged(nameof(ReadStatusLabel));
     }
 }

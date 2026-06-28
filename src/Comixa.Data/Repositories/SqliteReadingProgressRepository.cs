@@ -60,6 +60,15 @@ public sealed class SqliteReadingProgressRepository : IReadingProgressRepository
         return result;
     }
 
+    public async Task DeleteAsync(Guid comicBookId, CancellationToken cancellationToken = default)
+    {
+        using var connection = _database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM reading_progress WHERE comic_book_id = @id";
+        command.Parameters.AddWithValue("@id", comicBookId.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     private static ReadingProgress ReadProgress(SqliteDataReader reader) =>
         new(
             Guid.Parse(reader.GetString(0)),

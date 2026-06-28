@@ -22,30 +22,40 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly IReadingProgressRepository _progressRepository;
     private readonly IUserPreferencesStore _preferencesStore;
     private readonly IShelfRepository _shelfRepository;
+    private readonly IBookmarkRepository _bookmarkRepository;
 
     private readonly List<ComicBookListItemViewModel> _allBooks = [];
     private readonly Dictionary<Guid, ReadingProgress> _progressMap = [];
     private readonly List<Shelf> _shelves = [];
     private readonly Dictionary<Guid, HashSet<Guid>> _shelfEntriesMap = [];
 
+    // Navigation state
+    private bool _isSeriesView;
+    private Guid? _activeShelfId;
+    private string _activeShelfName = "";
+
+    // Library filter state
     private string _searchQuery = "";
     private SortOrder _sortOrder = SortOrder.TitleAsc;
     private bool _showUnreadOnly;
     private ComicFormat? _formatFilter;
-    private Guid? _activeShelfId;
 
+    // Series detail state
     private bool _isInSeriesDetail;
     private string _currentSeriesName = "";
     private IReadOnlyList<ComicBookListItemViewModel> _seriesBooks = [];
 
+    // Settings state
     private bool _isSettingsPanelVisible;
     private bool _isDarkTheme = true;
     private ReadingDirection _readingDirection = ReadingDirection.LeftToRight;
     private FitMode _fitMode = FitMode.FitPage;
 
+    // Shelf creation state
     private bool _isCreatingShelf;
     private string _newShelfName = "";
 
+    // Reader state
     private ComicBookListItemViewModel? _selectedBook;
     private Bitmap? _currentPageImage;
     private int _currentPageIndex;
@@ -53,6 +63,9 @@ public sealed class MainWindowViewModel : ViewModelBase
     private string _readerStatus = "Select a book to start reading.";
     private bool _isLoadingLibrary;
     private bool _isPageLoading;
+
+    // Bookmarks
+    private List<Bookmark> _currentBookBookmarks = [];
 
     private CancellationTokenSource? _verticalPagesCts;
     private SingleLibraryItemViewModel? _openSingleItem;
@@ -65,7 +78,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         IComicLibraryRepository comicRepository,
         IReadingProgressRepository progressRepository,
         IUserPreferencesStore preferencesStore,
-        IShelfRepository shelfRepository)
+        IShelfRepository shelfRepository,
+        IBookmarkRepository bookmarkRepository)
     {
         _folderPicker = folderPicker;
         _comicLibraryScanner = comicLibraryScanner;
@@ -75,10 +89,15 @@ public sealed class MainWindowViewModel : ViewModelBase
         _progressRepository = progressRepository;
         _preferencesStore = preferencesStore;
         _shelfRepository = shelfRepository;
+        _bookmarkRepository = bookmarkRepository;
 
         ScanFolderCommand = new AsyncRelayCommand(ScanFolderAsync);
         BackToLibraryCommand = new RelayCommand(BackToLibrary);
         OpenBookCommand = new RelayCommand<ComicBookListItemViewModel>(OpenBook);
+
+        // Navigation commands
+        NavigateToAllBooksCommand = new RelayCommand(NavigateToAllBooks);
+        NavigateToSeriesCommand = new RelayCommand(NavigateToSeries);
 
         // UI Prev/Next (direction-aware for RTL)
         PreviousPageCommand = new RelayCommand(
@@ -94,7 +113,6 @@ public sealed class MainWindowViewModel : ViewModelBase
                       ? CurrentPageIndex > 0
                       : CurrentPageIndex + 1 < (SelectedBook?.ComicBook.PageCount ?? 0)));
 
-        // Keyboard navigation (always index-based regardless of RTL)
         PageBackwardCommand = new RelayCommand(
             () => MovePageByIndex(-1),
             () => SelectedBook is not null && CurrentPageIndex > 0);
@@ -119,7 +137,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         SetReadingDirectionCommand = new RelayCommand<string>(SetReadingDirection);
         ToggleThemeCommand = new RelayCommand(ToggleTheme);
         ClearSearchCommand = new RelayCommand(() => SearchQuery = "");
-        SelectAllShelfCommand = new RelayCommand(SelectAllShelf);
+
         StartCreateShelfCommand = new RelayCommand(() =>
         {
             _isCreatingShelf = true;
@@ -134,6 +152,8 @@ public sealed class MainWindowViewModel : ViewModelBase
             RaisePropertyChanged(nameof(NewShelfName));
         });
 
+        ToggleBookmarkCommand = new AsyncRelayCommand(ToggleBookmarkAsync);
+
         _ = InitializeAsync();
     }
 
@@ -141,6 +161,10 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ObservableCollection<LibraryItemViewModel> DisplayedItems { get; } = [];
     public ObservableCollection<Bitmap?> VerticalPages { get; } = [];
     public ObservableCollection<ShelfViewModel> Shelves { get; } = [];
+
+    // Commands — navigation
+    public RelayCommand NavigateToAllBooksCommand { get; }
+    public RelayCommand NavigateToSeriesCommand { get; }
 
     // Commands — reader
     public AsyncRelayCommand ScanFolderCommand { get; }
@@ -153,6 +177,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     public RelayCommand GoToFirstPageCommand { get; }
     public RelayCommand GoToLastPageCommand { get; }
     public RelayCommand ToggleFitModeCommand { get; }
+    public AsyncRelayCommand ToggleBookmarkCommand { get; }
 
     // Commands — library
     public RelayCommand ToggleSettingsPanelCommand { get; }
@@ -164,7 +189,6 @@ public sealed class MainWindowViewModel : ViewModelBase
     public RelayCommand ClearSearchCommand { get; }
 
     // Commands — shelves
-    public RelayCommand SelectAllShelfCommand { get; }
     public RelayCommand StartCreateShelfCommand { get; }
     public AsyncRelayCommand ConfirmNewShelfCommand { get; }
     public RelayCommand CancelNewShelfCommand { get; }
@@ -178,7 +202,15 @@ public sealed class MainWindowViewModel : ViewModelBase
         ? "Comixa Desktop"
         : $"{SelectedBook.Title} — Comixa";
 
-    // Library state
+    // Navigation state
+    public bool IsViewAllBooks => _activeShelfId is null && !_isSeriesView;
+    public bool IsViewSeries => _activeShelfId is null && _isSeriesView;
+
+    public string LibraryViewTitle => _activeShelfId.HasValue
+        ? _activeShelfName
+        : _isSeriesView ? "Series" : "All Books";
+
+    // Library filter state
     public string SearchQuery
     {
         get => _searchQuery;
@@ -193,7 +225,6 @@ public sealed class MainWindowViewModel : ViewModelBase
     }
 
     public bool HasSearchQuery => !string.IsNullOrEmpty(_searchQuery);
-
     public bool ShowUnreadOnly => _showUnreadOnly;
     public bool IsCbzFilterActive => _formatFilter == ComicFormat.Cbz;
     public bool IsZipFilterActive => _formatFilter == ComicFormat.Zip;
@@ -202,7 +233,6 @@ public sealed class MainWindowViewModel : ViewModelBase
     public bool IsSortTitleDesc => _sortOrder == SortOrder.TitleDesc;
     public bool IsSortRecentlyAdded => _sortOrder == SortOrder.RecentlyAdded;
     public bool IsSortRecentlyRead => _sortOrder == SortOrder.RecentlyRead;
-    public bool IsAllShelfActive => _activeShelfId is null;
 
     public bool IsInSeriesDetail => _isInSeriesDetail;
     public string CurrentSeriesName => _currentSeriesName;
@@ -265,6 +295,8 @@ public sealed class MainWindowViewModel : ViewModelBase
                 _ = LoadVerticalPagesAsync(value.ComicBook);
             else
                 _ = LoadCurrentPageAsync();
+
+            _ = LoadBookmarksAsync();
         }
     }
 
@@ -304,6 +336,8 @@ public sealed class MainWindowViewModel : ViewModelBase
             _currentPageIndex = value;
             RaisePropertyChanged();
             RaisePropertyChanged(nameof(CurrentPageLabel));
+            RaisePropertyChanged(nameof(IsCurrentPageBookmarked));
+            RaisePropertyChanged(nameof(BookmarkIcon));
             RefreshAllNavCanExecute();
         }
     }
@@ -329,6 +363,12 @@ public sealed class MainWindowViewModel : ViewModelBase
             RaisePropertyChanged();
         }
     }
+
+    // Bookmarks
+    public bool IsCurrentPageBookmarked =>
+        _currentBookBookmarks.Any(b => b.PageNumber == _currentPageIndex);
+
+    public string BookmarkIcon => IsCurrentPageBookmarked ? "🔖" : "📄";
 
     // --- Initialization ---
 
@@ -425,23 +465,47 @@ public sealed class MainWindowViewModel : ViewModelBase
         _ = LoadCoversAsync();
     }
 
-    // --- Shelf management ---
+    // --- Navigation ---
 
-    private void SelectAllShelf()
+    private void NavigateToAllBooks()
     {
+        _isSeriesView = false;
         _activeShelfId = null;
-        foreach (var vm in Shelves)
-            vm.IsActive = false;
-        RaisePropertyChanged(nameof(IsAllShelfActive));
+        _activeShelfName = "";
+        _isInSeriesDetail = false;
+        NotifyNavigationProps();
         RefreshDisplayedItems();
     }
 
+    private void NavigateToSeries()
+    {
+        _isSeriesView = true;
+        _activeShelfId = null;
+        _activeShelfName = "";
+        _isInSeriesDetail = false;
+        NotifyNavigationProps();
+        RefreshDisplayedItems();
+    }
+
+    private void NotifyNavigationProps()
+    {
+        foreach (var vm in Shelves)
+            vm.IsActive = vm.Id == _activeShelfId;
+        RaisePropertyChanged(nameof(IsViewAllBooks));
+        RaisePropertyChanged(nameof(IsViewSeries));
+        RaisePropertyChanged(nameof(LibraryViewTitle));
+        RaisePropertyChanged(nameof(IsInSeriesDetail));
+    }
+
+    // --- Shelf management ---
+
     private void SelectShelf(Guid shelfId)
     {
+        _isSeriesView = false;
         _activeShelfId = shelfId;
-        foreach (var vm in Shelves)
-            vm.IsActive = vm.Id == shelfId;
-        RaisePropertyChanged(nameof(IsAllShelfActive));
+        _activeShelfName = _shelves.FirstOrDefault(s => s.Id == shelfId)?.Name ?? "";
+        _isInSeriesDetail = false;
+        NotifyNavigationProps();
         RefreshDisplayedItems();
     }
 
@@ -451,8 +515,12 @@ public sealed class MainWindowViewModel : ViewModelBase
         _shelves.RemoveAll(s => s.Id == shelfId);
         _shelfEntriesMap.Remove(shelfId);
         if (_activeShelfId == shelfId)
+        {
             _activeShelfId = null;
+            _activeShelfName = "";
+        }
         RebuildShelfVMs();
+        NotifyNavigationProps();
         RefreshDisplayedItems();
     }
 
@@ -502,7 +570,6 @@ public sealed class MainWindowViewModel : ViewModelBase
             vm.IsActive = shelf.Id == _activeShelfId;
             Shelves.Add(vm);
         }
-        RaisePropertyChanged(nameof(IsAllShelfActive));
     }
 
     private IReadOnlyList<ShelfMenuItemViewModel> BuildShelfMenuItems(Guid bookId)
@@ -517,7 +584,27 @@ public sealed class MainWindowViewModel : ViewModelBase
             .ToList();
     }
 
-    // --- Library navigation ---
+    // --- Mark as read / unread ---
+
+    private async void MarkBookAsRead(ComicBookListItemViewModel book)
+    {
+        var lastPage = Math.Max(0, book.ComicBook.PageCount - 1);
+        var progress = new ReadingProgress(book.ComicBook.Id, lastPage, DateTimeOffset.UtcNow);
+        await _progressRepository.SaveAsync(progress);
+        book.SetProgress(progress);
+        _progressMap[progress.ComicBookId] = progress;
+        RefreshDisplayedItems();
+    }
+
+    private async void MarkBookAsUnread(ComicBookListItemViewModel book)
+    {
+        await _progressRepository.DeleteAsync(book.ComicBook.Id);
+        book.SetProgress(null);
+        _progressMap.Remove(book.ComicBook.Id);
+        RefreshDisplayedItems();
+    }
+
+    // --- Library navigation (series detail) ---
 
     private void OpenSeries(SeriesLibraryItemViewModel series)
     {
@@ -556,6 +643,18 @@ public sealed class MainWindowViewModel : ViewModelBase
             _openSingleItem.IsCurrentlyOpen = true;
 
         SelectedBook = book;
+
+        // Mark as "started" (page 0) if no prior progress
+        if (!book.HasProgress)
+            _ = SaveStartedProgressAsync(book);
+    }
+
+    private async Task SaveStartedProgressAsync(ComicBookListItemViewModel book)
+    {
+        var progress = new ReadingProgress(book.ComicBook.Id, 0, DateTimeOffset.UtcNow);
+        await _progressRepository.SaveAsync(progress);
+        book.SetProgress(progress);
+        _progressMap[progress.ComicBookId] = progress;
     }
 
     // --- Filter / Sort ---
@@ -605,7 +704,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         if (_formatFilter.HasValue)
             filtered = filtered.Where(b => b.ComicBook.Format == _formatFilter.Value);
 
-        // Filter by active shelf
         if (_activeShelfId.HasValue && _shelfEntriesMap.TryGetValue(_activeShelfId.Value, out var shelfBookIds))
             filtered = filtered.Where(b => shelfBookIds.Contains(b.ComicBook.Id));
 
@@ -615,7 +713,6 @@ public sealed class MainWindowViewModel : ViewModelBase
         foreach (var item in grouped)
             DisplayedItems.Add(item);
 
-        // Restore open indicator after rebuild
         if (_selectedBook is not null)
         {
             _openSingleItem = DisplayedItems
@@ -640,13 +737,22 @@ public sealed class MainWindowViewModel : ViewModelBase
         {
             var list = group.ToList();
             if (!group.Key.StartsWith(noSeriesPrefix) && list.Count >= 2)
+            {
                 result.Add(new SeriesLibraryItemViewModel(group.Key, list, OpenSeries));
+            }
             else
+            {
+                // In series-only view, skip standalone books
+                if (_isSeriesView) continue;
+
                 foreach (var b in list)
                     result.Add(new SingleLibraryItemViewModel(
                         b,
                         book => OpenBook(book),
+                        MarkBookAsRead,
+                        MarkBookAsUnread,
                         BuildShelfMenuItems(b.ComicBook.Id)));
+            }
         }
 
         return _sortOrder switch
@@ -747,6 +853,49 @@ public sealed class MainWindowViewModel : ViewModelBase
         await _preferencesStore.SaveAsync(new UserPreferences(_isDarkTheme, _readingDirection));
     }
 
+    // --- Bookmarks ---
+
+    private async Task LoadBookmarksAsync()
+    {
+        if (SelectedBook is null)
+        {
+            _currentBookBookmarks = [];
+            RaisePropertyChanged(nameof(IsCurrentPageBookmarked));
+            RaisePropertyChanged(nameof(BookmarkIcon));
+            return;
+        }
+
+        var bookmarks = await _bookmarkRepository.GetForComicAsync(SelectedBook.ComicBook.Id);
+        _currentBookBookmarks = [..bookmarks];
+        RaisePropertyChanged(nameof(IsCurrentPageBookmarked));
+        RaisePropertyChanged(nameof(BookmarkIcon));
+    }
+
+    private async Task ToggleBookmarkAsync()
+    {
+        if (SelectedBook is null) return;
+
+        if (IsCurrentPageBookmarked)
+        {
+            await _bookmarkRepository.DeleteForPageAsync(SelectedBook.ComicBook.Id, _currentPageIndex);
+            _currentBookBookmarks.RemoveAll(b => b.PageNumber == _currentPageIndex);
+        }
+        else
+        {
+            var bookmark = new Bookmark(
+                Guid.NewGuid(),
+                SelectedBook.ComicBook.Id,
+                _currentPageIndex,
+                null,
+                DateTimeOffset.UtcNow);
+            await _bookmarkRepository.AddAsync(bookmark);
+            _currentBookBookmarks.Add(bookmark);
+        }
+
+        RaisePropertyChanged(nameof(IsCurrentPageBookmarked));
+        RaisePropertyChanged(nameof(BookmarkIcon));
+    }
+
     // --- Reader ---
 
     private void MovePageByIndex(int delta)
@@ -845,7 +994,7 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     private async Task SaveProgressAsync()
     {
-        if (SelectedBook is null || CurrentPageIndex == 0) return;
+        if (SelectedBook is null) return;
         var progress = new ReadingProgress(SelectedBook.ComicBook.Id, CurrentPageIndex, DateTimeOffset.UtcNow);
         await _progressRepository.SaveAsync(progress);
         SelectedBook.SetProgress(progress);

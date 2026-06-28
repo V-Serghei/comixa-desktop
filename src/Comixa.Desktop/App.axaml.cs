@@ -33,6 +33,7 @@ public sealed partial class App : Application
             IComicLibraryRepository comicRepository = new SqliteComicLibraryRepository(database);
             IReadingProgressRepository progressRepository = new SqliteReadingProgressRepository(database);
             IShelfRepository shelfRepository = new SqliteShelfRepository(database);
+            IBookmarkRepository bookmarkRepository = new SqliteBookmarkRepository(database);
             IUserPreferencesStore preferencesStore = new JsonUserPreferencesStore();
 
             var mainWindow = new MainWindow();
@@ -44,7 +45,8 @@ public sealed partial class App : Application
                 comicRepository,
                 progressRepository,
                 preferencesStore,
-                shelfRepository);
+                shelfRepository,
+                bookmarkRepository);
 
             desktop.MainWindow = mainWindow;
         }
