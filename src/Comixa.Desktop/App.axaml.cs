@@ -1,6 +1,9 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Comixa.Core.Repositories;
+using Comixa.Data;
+using Comixa.Data.Repositories;
 using Comixa.Desktop.Reader;
 using Comixa.Desktop.Services;
 using Comixa.Desktop.ViewModels;
@@ -20,12 +23,31 @@ public sealed partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            var dbPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Comixa", "Desktop", "comixa.db");
+
+            var database = new ComixaDatabase(dbPath);
+            database.EnsureCreated();
+
+            IComicLibraryRepository comicRepository = new SqliteComicLibraryRepository(database);
+            IReadingProgressRepository progressRepository = new SqliteReadingProgressRepository(database);
+            IShelfRepository shelfRepository = new SqliteShelfRepository(database);
+            IBookmarkRepository bookmarkRepository = new SqliteBookmarkRepository(database);
+            IUserPreferencesStore preferencesStore = new JsonUserPreferencesStore();
+
             var mainWindow = new MainWindow();
             mainWindow.DataContext = new MainWindowViewModel(
                 new AvaloniaFolderPicker(mainWindow),
                 new LocalComicLibraryScanner(),
                 new JsonUserLibrarySettingsStore(),
-                new LocalPagePreviewLoader());
+                new LocalPagePreviewLoader(),
+                comicRepository,
+                progressRepository,
+                preferencesStore,
+                shelfRepository,
+                bookmarkRepository);
+
             desktop.MainWindow = mainWindow;
         }
 

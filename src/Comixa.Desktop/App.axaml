@@ -3,14 +3,33 @@
              x:Class="Comixa.Desktop.App"
              RequestedThemeVariant="Dark">
   <Application.Resources>
-    <SolidColorBrush x:Key="ComixaBackgroundBrush" Color="#0B0F12" />
-    <SolidColorBrush x:Key="ComixaSurfaceBrush" Color="#0E131A" />
-    <SolidColorBrush x:Key="ComixaSurfaceVariantBrush" Color="#1A212B" />
-    <SolidColorBrush x:Key="ComixaPrimaryBrush" Color="#00D47B" />
-    <SolidColorBrush x:Key="ComixaSecondaryBrush" Color="#A78BFA" />
-    <SolidColorBrush x:Key="ComixaOnSurfaceBrush" Color="#E6EBF2" />
-    <SolidColorBrush x:Key="ComixaOnSurfaceVariantBrush" Color="#A8B3C2" />
-    <SolidColorBrush x:Key="ComixaOutlineBrush" Color="#3A4654" />
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="ComixaBackgroundBrush"       Color="#0B0F12" />
+          <SolidColorBrush x:Key="ComixaSurfaceBrush"          Color="#0E131A" />
+          <SolidColorBrush x:Key="ComixaSurfaceVariantBrush"   Color="#1A212B" />
+          <SolidColorBrush x:Key="ComixaPrimaryBrush"          Color="#00D47B" />
+          <SolidColorBrush x:Key="ComixaSecondaryBrush"        Color="#A78BFA" />
+          <SolidColorBrush x:Key="ComixaOnSurfaceBrush"        Color="#E6EBF2" />
+          <SolidColorBrush x:Key="ComixaOnSurfaceVariantBrush" Color="#A8B3C2" />
+          <SolidColorBrush x:Key="ComixaOutlineBrush"          Color="#3A4654" />
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="ComixaBackgroundBrush"       Color="#F0F4F8" />
+          <SolidColorBrush x:Key="ComixaSurfaceBrush"          Color="#FFFFFF" />
+          <SolidColorBrush x:Key="ComixaSurfaceVariantBrush"   Color="#E8EDF3" />
+          <SolidColorBrush x:Key="ComixaPrimaryBrush"          Color="#007A47" />
+          <SolidColorBrush x:Key="ComixaSecondaryBrush"        Color="#5B21B6" />
+          <SolidColorBrush x:Key="ComixaOnSurfaceBrush"        Color="#111827" />
+          <SolidColorBrush x:Key="ComixaOnSurfaceVariantBrush" Color="#4B5563" />
+          <SolidColorBrush x:Key="ComixaOutlineBrush"          Color="#CBD5E0" />
+        </ResourceDictionary>
+
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
   </Application.Resources>
   <Application.Styles>
     <FluentTheme />
