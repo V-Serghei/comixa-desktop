@@ -9,105 +9,528 @@
         MinWidth="980"
         MinHeight="640"
         Background="{DynamicResource ComixaBackgroundBrush}">
-  <Grid RowDefinitions="64,*">
-    <Border Background="{DynamicResource ComixaSurfaceBrush}" BorderBrush="{DynamicResource ComixaOutlineBrush}" BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="Auto,*,Auto" Margin="18,0">
-        <TextBlock Grid.Column="0" Text="Menu" FontSize="13" VerticalAlignment="Center" Margin="0,0,16,0" />
-        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
-          <TextBlock Text="{Binding Title}" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
-          <TextBlock Text="{Binding Phase}" FontSize="12" Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
-        </StackPanel>
-        <Button Grid.Column="2"
-                Content="+ Add Folder"
-                Command="{Binding ScanFolderCommand}"
+
+  <!-- ─── Keyboard shortcuts ─────────────────────────────────────── -->
+  <Window.KeyBindings>
+    <!-- Arrow navigation (index-based, RTL-independent) -->
+    <KeyBinding Gesture="Left"     Command="{Binding PageBackwardCommand}" />
+    <KeyBinding Gesture="Right"    Command="{Binding PageForwardCommand}" />
+    <KeyBinding Gesture="Up"       Command="{Binding PageBackwardCommand}" />
+    <KeyBinding Gesture="Down"     Command="{Binding PageForwardCommand}" />
+    <KeyBinding Gesture="PageUp"   Command="{Binding PageBackwardCommand}" />
+    <KeyBinding Gesture="PageDown" Command="{Binding PageForwardCommand}" />
+    <KeyBinding Gesture="Home"     Command="{Binding GoToFirstPageCommand}" />
+    <KeyBinding Gesture="End"      Command="{Binding GoToLastPageCommand}" />
+    <!-- Reader controls -->
+    <KeyBinding Gesture="F"        Command="{Binding ToggleFitModeCommand}" />
+    <KeyBinding Gesture="S"        Command="{Binding ToggleSettingsPanelCommand}" />
+  </Window.KeyBindings>
+
+  <!-- ─── Library card DataTemplates ───────────────────────────────── -->
+  <Window.DataTemplates>
+
+    <!-- Single book card (120 × ~220) -->
+    <DataTemplate x:DataType="vm:SingleLibraryItemViewModel">
+      <Button Command="{Binding OpenCommand}"
+              Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
+        <!-- Context menu: shelf assignment -->
+        <Button.ContextMenu>
+          <ContextMenu>
+            <MenuItem Header="Shelves" ItemsSource="{Binding ShelfItems}">
+              <MenuItem.ItemContainerTheme>
+                <ControlTheme TargetType="MenuItem">
+                  <Setter Property="Header" Value="{ReflectionBinding MenuText}" />
+                  <Setter Property="Command" Value="{ReflectionBinding ToggleCommand}" />
+                </ControlTheme>
+              </MenuItem.ItemContainerTheme>
+            </MenuItem>
+          </ContextMenu>
+        </Button.ContextMenu>
+        <Panel>
+          <!-- Card body -->
+          <Border Width="120" Background="{DynamicResource ComixaSurfaceBrush}"
+                  BorderBrush="{DynamicResource ComixaOutlineBrush}" BorderThickness="1"
+                  CornerRadius="7" ClipToBounds="True">
+            <Grid RowDefinitions="155,Auto,3">
+              <!-- Cover -->
+              <Border Background="{DynamicResource ComixaSurfaceVariantBrush}">
+                <Grid>
+                  <Image Source="{Binding Item.CoverImage}" Stretch="UniformToFill"
+                         IsVisible="{Binding Item.HasCoverImage}" />
+                  <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="4"
+                              IsVisible="{Binding !Item.HasCoverImage}">
+                    <TextBlock Text="{Binding Item.Format}"
+                               Foreground="{DynamicResource ComixaPrimaryBrush}"
+                               FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding Item.IssueLabel}"
+                               Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                               FontSize="11" HorizontalAlignment="Center" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+              <!-- Info -->
+              <StackPanel Grid.Row="1" Margin="8,6,8,6">
+                <TextBlock Text="{Binding Item.Title}"
+                           Foreground="{DynamicResource ComixaOnSurfaceBrush}"
+                           FontSize="11" FontWeight="SemiBold"
+                           TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Item.Metadata}"
+                           Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                           FontSize="9.5" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+              <!-- Progress bar -->
+              <ProgressBar Grid.Row="2" Value="{Binding Item.ProgressValue}" Maximum="1.0"
+                           IsVisible="{Binding Item.HasProgress}"
+                           Foreground="{DynamicResource ComixaPrimaryBrush}"
+                           Background="{DynamicResource ComixaOutlineBrush}" />
+            </Grid>
+          </Border>
+          <!-- "Currently open" accent border overlay -->
+          <Border Width="120" BorderBrush="{DynamicResource ComixaPrimaryBrush}" BorderThickness="2"
+                  CornerRadius="7" IsVisible="{Binding IsCurrentlyOpen}" />
+        </Panel>
+      </Button>
+    </DataTemplate>
+
+    <!-- Series card (120 × ~220) -->
+    <DataTemplate x:DataType="vm:SeriesLibraryItemViewModel">
+      <Button Command="{Binding OpenCommand}"
+              Background="Transparent" BorderThickness="0" Padding="4" Cursor="Hand">
+        <Border Width="120" Background="{DynamicResource ComixaSurfaceBrush}"
+                BorderBrush="{DynamicResource ComixaOutlineBrush}" BorderThickness="1"
+                CornerRadius="7" ClipToBounds="True">
+          <Grid RowDefinitions="155,Auto,3">
+            <!-- Cover with badge -->
+            <Panel Background="{DynamicResource ComixaSurfaceVariantBrush}">
+              <Image Source="{Binding Cover.CoverImage}" Stretch="UniformToFill"
+                     IsVisible="{Binding Cover.HasCoverImage}" />
+              <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="4"
+                          IsVisible="{Binding !Cover.HasCoverImage}">
+                <TextBlock Text="{Binding Cover.Format}"
+                           Foreground="{DynamicResource ComixaPrimaryBrush}"
+                           FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" />
+              </StackPanel>
+              <!-- Issue badge -->
+              <Border HorizontalAlignment="Right" VerticalAlignment="Top"
+                      Background="{DynamicResource ComixaPrimaryBrush}"
+                      CornerRadius="0,0,0,5" Padding="5,2">
+                <TextBlock Text="{Binding IssueCountLabel}"
+                           FontSize="9" FontWeight="Bold" Foreground="#001B12" />
+              </Border>
+            </Panel>
+            <!-- Info -->
+            <StackPanel Grid.Row="1" Margin="8,6,8,6">
+              <TextBlock Text="{Binding SeriesName}"
+                         Foreground="{DynamicResource ComixaOnSurfaceBrush}"
+                         FontSize="11" FontWeight="SemiBold"
+                         TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{Binding IssueCountLabel}"
+                         Foreground="{DynamicResource ComixaSecondaryBrush}"
+                         FontSize="9.5" Margin="0,2,0,0" />
+            </StackPanel>
+            <!-- Series progress bar -->
+            <ProgressBar Grid.Row="2" Value="{Binding ProgressValue}" Maximum="1.0"
+                         IsVisible="{Binding HasProgress}"
+                         Foreground="{DynamicResource ComixaSecondaryBrush}"
+                         Background="{DynamicResource ComixaOutlineBrush}" />
+          </Grid>
+        </Border>
+      </Button>
+    </DataTemplate>
+
+    <!-- Shelf chip DataTemplate (for the shelf selector row) -->
+    <DataTemplate x:DataType="vm:ShelfViewModel">
+      <StackPanel Orientation="Horizontal" Margin="0,0,4,0">
+        <ToggleButton Content="{Binding Name}"
+                      IsChecked="{Binding IsActive, Mode=OneWay}"
+                      Command="{Binding SelectCommand}"
+                      Padding="8,4" />
+        <Button Content="×"
+                Command="{Binding DeleteCommand}"
+                Background="Transparent" BorderThickness="0"
+                Padding="3,4" FontSize="11"
                 VerticalAlignment="Center"
-                Background="{DynamicResource ComixaPrimaryBrush}"
-                Foreground="#001B12" />
+                ToolTip.Tip="Delete shelf" />
+      </StackPanel>
+    </DataTemplate>
+
+  </Window.DataTemplates>
+
+  <Grid RowDefinitions="52,*">
+
+    <!-- ─── Top bar ──────────────────────────────────────────────── -->
+    <Border Background="{DynamicResource ComixaSurfaceBrush}"
+            BorderBrush="{DynamicResource ComixaOutlineBrush}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto" Margin="20,0">
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="Comixa Desktop" FontSize="17" FontWeight="SemiBold"
+                     Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+          <TextBlock Text="{Binding StatusMessage}" FontSize="11"
+                     Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+        </StackPanel>
+        <Button Grid.Column="1" Content="⚙  Settings"
+                Command="{Binding ToggleSettingsPanelCommand}"
+                VerticalAlignment="Center" />
       </Grid>
     </Border>
 
-    <Grid Grid.Row="1" ColumnDefinitions="5*,7*">
-      <Border Padding="18" BorderBrush="{DynamicResource ComixaOutlineBrush}" BorderThickness="0,0,1,0">
-        <Grid RowDefinitions="Auto,*">
-          <StackPanel Spacing="4">
-            <TextBlock Text="Library" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
-            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+    <!-- ─── Body: library | splitter | reader ───────────────────── -->
+    <Grid Grid.Row="1" ColumnDefinitions="420,4,*">
+
+      <!-- ── Library panel ──────────────────────────────────────── -->
+      <Border BorderBrush="{DynamicResource ComixaOutlineBrush}" BorderThickness="0,0,0,0">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Margin="14,12,14,0">
+
+          <!-- Row 0: Header -->
+          <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+            <TextBlock Text="Library" FontSize="20" FontWeight="SemiBold"
+                       Foreground="{DynamicResource ComixaOnSurfaceBrush}" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="+ Add Folder"
+                    Command="{Binding ScanFolderCommand}"
+                    Background="{DynamicResource ComixaPrimaryBrush}"
+                    Foreground="#001B12" VerticalAlignment="Center" />
+          </Grid>
+
+          <!-- Row 1: Search with clear button -->
+          <Grid Grid.Row="1" Margin="0,0,0,8" ColumnDefinitions="*,Auto">
+            <TextBox Text="{Binding SearchQuery}"
+                     PlaceholderText="Search comics and series..." />
+            <Button Grid.Column="1" Content="✕"
+                    Command="{Binding ClearSearchCommand}"
+                    IsVisible="{Binding HasSearchQuery}"
+                    Background="Transparent" Margin="4,0,0,0"
+                    ToolTip.Tip="Clear search" />
+          </Grid>
+
+          <!-- Row 2: Filter chips -->
+          <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
+            <ToggleButton Content="Unread" Margin="0,0,5,0"
+                          IsChecked="{Binding ShowUnreadOnly, Mode=OneWay}"
+                          Command="{Binding ToggleUnreadOnlyCommand}" />
+            <ToggleButton Content="CBZ" Margin="0,0,5,0"
+                          IsChecked="{Binding IsCbzFilterActive, Mode=OneWay}"
+                          Command="{Binding ToggleCbzFilterCommand}" />
+            <ToggleButton Content="ZIP" Margin="0,0,5,0"
+                          IsChecked="{Binding IsZipFilterActive, Mode=OneWay}"
+                          Command="{Binding ToggleZipFilterCommand}" />
+            <ToggleButton Content="PDF"
+                          IsChecked="{Binding IsPdfFilterActive, Mode=OneWay}"
+                          Command="{Binding TogglePdfFilterCommand}" />
+          </WrapPanel>
+
+          <!-- Row 3: Sort -->
+          <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+            <TextBlock Text="Sort:" VerticalAlignment="Center" FontSize="11"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <RadioButton Content="A–Z" GroupName="Sort"
+                         IsChecked="{Binding IsSortTitleAsc, Mode=OneWay}"
+                         Command="{Binding SetSortOrderCommand}" CommandParameter="title_asc" />
+            <RadioButton Content="Z–A" GroupName="Sort"
+                         IsChecked="{Binding IsSortTitleDesc, Mode=OneWay}"
+                         Command="{Binding SetSortOrderCommand}" CommandParameter="title_desc" />
+            <RadioButton Content="Added" GroupName="Sort"
+                         IsChecked="{Binding IsSortRecentlyAdded, Mode=OneWay}"
+                         Command="{Binding SetSortOrderCommand}" CommandParameter="recent_added" />
+            <RadioButton Content="Read" GroupName="Sort"
+                         IsChecked="{Binding IsSortRecentlyRead, Mode=OneWay}"
+                         Command="{Binding SetSortOrderCommand}" CommandParameter="recent_read" />
           </StackPanel>
 
-          <ListBox Grid.Row="1"
-                   ItemsSource="{Binding Books}"
-                   SelectedItem="{Binding SelectedBook}"
-                   Margin="0,16,0,0"
-                   Background="Transparent"
-                   BorderThickness="0"
-                   ScrollViewer.VerticalScrollBarVisibility="Auto">
-            <ListBox.ItemsPanel>
-              <ItemsPanelTemplate>
-                <WrapPanel />
-              </ItemsPanelTemplate>
-            </ListBox.ItemsPanel>
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:ComicBookListItemViewModel">
-                <Border Width="160"
-                        MinHeight="250"
-                        Margin="6"
-                        Background="{DynamicResource ComixaSurfaceBrush}"
-                        BorderBrush="{DynamicResource ComixaOutlineBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8">
-                  <Grid RowDefinitions="210,Auto">
-                    <Border Background="{DynamicResource ComixaSurfaceVariantBrush}" CornerRadius="8,8,0,0">
-                      <Grid>
-                        <Image Source="{Binding CoverImage}"
-                               Stretch="UniformToFill"
-                               IsVisible="{Binding HasCoverImage}" />
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8" IsVisible="{Binding !HasCoverImage}">
-                          <TextBlock Text="{Binding Format}" Foreground="{DynamicResource ComixaPrimaryBrush}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                          <TextBlock Text="{Binding PageCount}" Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" FontSize="12" HorizontalAlignment="Center" />
-                        </StackPanel>
-                      </Grid>
-                    </Border>
-                    <StackPanel Grid.Row="1" Margin="10" Spacing="4">
-                      <TextBlock Text="{Binding Title}" Foreground="{DynamicResource ComixaOnSurfaceBrush}" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" />
-                      <TextBlock Text="{Binding Metadata}" Foreground="{DynamicResource ComixaPrimaryBrush}" FontSize="12" TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-                  </Grid>
-                </Border>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
+          <!-- Row 4: Shelf selector -->
+          <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+              <StackPanel Orientation="Horizontal" Spacing="0">
+                <!-- "All" chip -->
+                <ToggleButton Content="All"
+                              IsChecked="{Binding IsAllShelfActive, Mode=OneWay}"
+                              Command="{Binding SelectAllShelfCommand}"
+                              Margin="0,0,4,0" Padding="8,4" />
+                <!-- Dynamic shelf chips -->
+                <ItemsControl ItemsSource="{Binding Shelves}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </StackPanel>
+            </ScrollViewer>
+            <Button Grid.Column="1" Content="+ Shelf"
+                    Command="{Binding StartCreateShelfCommand}"
+                    Padding="8,4" Margin="6,0,0,0"
+                    Background="{DynamicResource ComixaSurfaceVariantBrush}" />
+          </Grid>
+
+          <!-- Row 5: New shelf input (shown when creating) -->
+          <Grid Grid.Row="5" ColumnDefinitions="*,Auto,Auto"
+                IsVisible="{Binding IsCreatingShelf}"
+                Margin="0,0,0,8">
+            <TextBox Text="{Binding NewShelfName}"
+                     PlaceholderText="Shelf name..." />
+            <Button Grid.Column="1" Content="✓"
+                    Command="{Binding ConfirmNewShelfCommand}"
+                    Background="{DynamicResource ComixaPrimaryBrush}"
+                    Foreground="#001B12" Margin="4,0,0,0"
+                    ToolTip.Tip="Create shelf" />
+            <Button Grid.Column="2" Content="✕"
+                    Command="{Binding CancelNewShelfCommand}"
+                    Background="Transparent" Margin="4,0,0,0"
+                    ToolTip.Tip="Cancel" />
+          </Grid>
+
+          <!-- Row 6: Content -->
+          <Grid Grid.Row="6">
+
+            <!-- Main library grid -->
+            <Grid IsVisible="{Binding !IsInSeriesDetail}">
+              <!-- Empty state -->
+              <StackPanel IsVisible="{Binding IsLibraryEmpty}"
+                          HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                <TextBlock Text="📚" FontSize="52" HorizontalAlignment="Center" />
+                <TextBlock Text="Your library is empty"
+                           FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center"
+                           Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                <TextBlock Text="Click + Add Folder to scan a local folder&#xA;with CBZ, ZIP, or PDF comics."
+                           TextAlignment="Center" TextWrapping="Wrap"
+                           Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" FontSize="12" />
+              </StackPanel>
+
+              <!-- Library WrapPanel grid (compact 120px cards → 3 columns) -->
+              <ScrollViewer IsVisible="{Binding !IsLibraryEmpty}"
+                            VerticalScrollBarVisibility="Auto"
+                            HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding DisplayedItems}" Margin="0,0,0,16">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </ScrollViewer>
+            </Grid>
+
+            <!-- Series detail -->
+            <Grid RowDefinitions="Auto,Auto,*" IsVisible="{Binding IsInSeriesDetail}">
+              <Button Grid.Row="0" Content="← All Series"
+                      Command="{Binding BackToLibraryCommand}"
+                      Background="Transparent"
+                      Foreground="{DynamicResource ComixaPrimaryBrush}"
+                      HorizontalAlignment="Left" Margin="0,0,0,4" />
+              <TextBlock Grid.Row="1" Text="{Binding CurrentSeriesName}"
+                         FontSize="17" FontWeight="SemiBold"
+                         Foreground="{DynamicResource ComixaOnSurfaceBrush}"
+                         Margin="0,0,0,8" />
+              <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding SeriesBooks}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Button Command="{Binding $parent[ItemsControl].DataContext.OpenBookCommand}"
+                              CommandParameter="{Binding}"
+                              Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,0,5"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                              Cursor="Hand">
+                        <Border Padding="8,7"
+                                Background="{DynamicResource ComixaSurfaceVariantBrush}"
+                                CornerRadius="5" ClipToBounds="True">
+                          <Grid RowDefinitions="Auto,3" ColumnDefinitions="60,*">
+                            <Border CornerRadius="3" Width="54" Height="70"
+                                    Background="{DynamicResource ComixaOutlineBrush}">
+                              <Image Source="{Binding CoverImage}" Stretch="UniformToFill"
+                                     IsVisible="{Binding HasCoverImage}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center"
+                                        Margin="8,0" Spacing="3">
+                              <TextBlock Text="{Binding Title}"
+                                         Foreground="{DynamicResource ComixaOnSurfaceBrush}"
+                                         FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap" />
+                              <TextBlock Text="{Binding Metadata}"
+                                         Foreground="{DynamicResource ComixaPrimaryBrush}"
+                                         FontSize="10" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <ProgressBar Grid.Row="1" Grid.ColumnSpan="2"
+                                         Value="{Binding ProgressValue}" Maximum="1.0"
+                                         IsVisible="{Binding HasProgress}"
+                                         Foreground="{DynamicResource ComixaPrimaryBrush}"
+                                         Background="{DynamicResource ComixaOutlineBrush}"
+                                         Height="3" />
+                          </Grid>
+                        </Border>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Grid>
+
+          </Grid>
         </Grid>
       </Border>
 
-      <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Background="#000000">
-        <Border Padding="16,10" Background="#99000000">
-          <Grid ColumnDefinitions="Auto,*,Auto">
-            <TextBlock Text="Reader" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" />
-            <TextBlock Grid.Column="1" Text="{Binding ReaderStatus}" Foreground="#D8FFFFFF" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="16,0" />
-            <TextBlock Grid.Column="2" Text="{Binding CurrentPageLabel}" Foreground="#D8FFFFFF" VerticalAlignment="Center" />
-          </Grid>
-        </Border>
+      <!-- ── Panel splitter ─────────────────────────────────────── -->
+      <GridSplitter Grid.Column="1"
+                    Background="{DynamicResource ComixaOutlineBrush}"
+                    ResizeDirection="Columns" />
 
-        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-          <Grid MinHeight="520">
-            <Image Source="{Binding CurrentPageImage}"
-                   Stretch="Uniform"
-                   Margin="24"
-                   IsVisible="{Binding HasCurrentPageImage}" />
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" IsVisible="{Binding !HasCurrentPageImage}">
-              <TextBlock Text="Reader workspace" Foreground="White" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" />
-              <TextBlock Text="{Binding ReaderPlaceholder}" Foreground="#B3FFFFFF" TextWrapping="Wrap" MaxWidth="520" TextAlignment="Center" />
+      <!-- ── Right panel ────────────────────────────────────────── -->
+      <Grid Grid.Column="2">
+
+        <!-- Settings panel -->
+        <Border IsVisible="{Binding IsSettingsPanelVisible}"
+                Background="{DynamicResource ComixaSurfaceBrush}">
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="26" MaxWidth="440"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Margin="40">
+              <TextBlock Text="Settings" FontSize="24" FontWeight="SemiBold"
+                         Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+
+              <StackPanel Spacing="10">
+                <TextBlock Text="APPEARANCE" FontSize="10" FontWeight="SemiBold" LetterSpacing="1.2"
+                           Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+                <StackPanel Orientation="Horizontal" Spacing="20">
+                  <RadioButton Content="Dark theme" GroupName="Theme"
+                               IsChecked="{Binding IsDarkTheme, Mode=OneWay}"
+                               Command="{Binding ToggleThemeCommand}" />
+                  <RadioButton Content="Light theme" GroupName="Theme"
+                               IsChecked="{Binding IsLightTheme, Mode=OneWay}"
+                               Command="{Binding ToggleThemeCommand}" />
+                </StackPanel>
+              </StackPanel>
+
+              <StackPanel Spacing="10">
+                <TextBlock Text="READING DIRECTION" FontSize="10" FontWeight="SemiBold" LetterSpacing="1.2"
+                           Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+                <StackPanel Spacing="8">
+                  <RadioButton Content="Left → Right  (Western comics)" GroupName="Direction"
+                               IsChecked="{Binding IsLeftToRight, Mode=OneWay}"
+                               Command="{Binding SetReadingDirectionCommand}" CommandParameter="ltr" />
+                  <RadioButton Content="Right ← Left  (Manga)" GroupName="Direction"
+                               IsChecked="{Binding IsRightToLeft, Mode=OneWay}"
+                               Command="{Binding SetReadingDirectionCommand}" CommandParameter="rtl" />
+                  <RadioButton Content="Top ↓ Bottom  (Webtoon / vertical scroll)" GroupName="Direction"
+                               IsChecked="{Binding IsTopToBottom, Mode=OneWay}"
+                               Command="{Binding SetReadingDirectionCommand}" CommandParameter="ttb" />
+                </StackPanel>
+              </StackPanel>
+
+              <StackPanel Spacing="6">
+                <TextBlock Text="KEYBOARD SHORTCUTS" FontSize="10" FontWeight="SemiBold" LetterSpacing="1.2"
+                           Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+                <TextBlock Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" FontSize="12"
+                           Text="← → ↑ ↓  —  navigate pages&#xA;Page Up / Page Down  —  navigate pages&#xA;Home / End  —  first / last page&#xA;F  —  toggle Fit Page / Fit Width&#xA;S  —  open/close Settings&#xA;Click left half of page  —  previous&#xA;Click right half of page  —  next&#xA;Right-click book card  —  add to shelf" />
+              </StackPanel>
+
+              <Button Content="Close Settings (S)"
+                      Command="{Binding ToggleSettingsPanelCommand}"
+                      Background="{DynamicResource ComixaPrimaryBrush}"
+                      Foreground="#001B12" />
             </StackPanel>
-          </Grid>
-        </ScrollViewer>
-
-        <Border Grid.Row="2" Padding="14" Background="#99000000">
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
-            <Button Content="Previous" Command="{Binding PreviousPageCommand}" />
-            <Button Content="Fit Page" IsEnabled="False" />
-            <Button Content="Next" Command="{Binding NextPageCommand}" />
-          </StackPanel>
+          </ScrollViewer>
         </Border>
+
+        <!-- Reader panel -->
+        <Grid RowDefinitions="Auto,*,Auto"
+              IsVisible="{Binding !IsSettingsPanelVisible}"
+              Background="#000000">
+
+          <!-- Reader header -->
+          <Border Padding="12,8" Background="#DD000000">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+              <TextBlock Text="{Binding ReaderStatus}" Foreground="White"
+                         FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+              <!-- Loading indicator -->
+              <ProgressBar Grid.Column="1" IsIndeterminate="True"
+                           IsVisible="{Binding IsPageLoading}"
+                           Width="80" Height="3" Margin="8,0"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource ComixaPrimaryBrush}" />
+              <TextBlock Grid.Column="2" Text="{Binding CurrentPageLabel}"
+                         Foreground="#D0FFFFFF" VerticalAlignment="Center"
+                         MinWidth="80" TextAlignment="Right" />
+            </Grid>
+          </Border>
+
+          <!-- ─── Page area (horizontal mode) ─── -->
+          <Grid Grid.Row="1" IsVisible="{Binding !IsVerticalMode}">
+
+            <!-- Fit Page: image centered, both scrollbars -->
+            <ScrollViewer IsVisible="{Binding IsFitPageMode}"
+                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+              <Grid MinHeight="400">
+                <Image Source="{Binding CurrentPageImage}" Stretch="Uniform"
+                       Margin="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       IsVisible="{Binding HasCurrentPageImage}" />
+                <!-- No-book placeholder -->
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12"
+                            IsVisible="{Binding !HasSelectedBook}">
+                  <TextBlock Text="📖" FontSize="52" HorizontalAlignment="Center" />
+                  <TextBlock Text="Select a book to start reading"
+                             Foreground="White" FontSize="18" FontWeight="SemiBold"
+                             HorizontalAlignment="Center" />
+                  <TextBlock Text="Click a comic in the library, or use ← → arrow keys to navigate after opening."
+                             Foreground="#A0FFFFFF" TextWrapping="Wrap" MaxWidth="340" TextAlignment="Center"
+                             FontSize="12" />
+                </StackPanel>
+              </Grid>
+            </ScrollViewer>
+
+            <!-- Fit Width: image fills width, vertical scroll only -->
+            <ScrollViewer IsVisible="{Binding IsFitWidthMode}"
+                          HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+              <Image Source="{Binding CurrentPageImage}" Stretch="Uniform"
+                     HorizontalAlignment="Stretch"
+                     IsVisible="{Binding HasCurrentPageImage}" />
+            </ScrollViewer>
+
+            <!-- Click zones: left half = back, right half = forward -->
+            <Grid ColumnDefinitions="*,*" IsVisible="{Binding HasCurrentPageImage}">
+              <Button Grid.Column="0"
+                      Command="{Binding PageBackwardCommand}"
+                      Background="Transparent" BorderThickness="0" Padding="0"
+                      Opacity="0" Cursor="Hand" />
+              <Button Grid.Column="1"
+                      Command="{Binding PageForwardCommand}"
+                      Background="Transparent" BorderThickness="0" Padding="0"
+                      Opacity="0" Cursor="Hand" />
+            </Grid>
+          </Grid>
+
+          <!-- ─── Page area (vertical / webtoon mode) ─── -->
+          <ScrollViewer Grid.Row="1" IsVisible="{Binding IsVerticalMode}"
+                        VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding VerticalPages}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Image Source="{Binding}" Stretch="Uniform" Margin="0,2" MaxWidth="960" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+
+          <!-- ─── Navigation footer ─── -->
+          <Border Grid.Row="2" Padding="12,10" Background="#DD000000">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <!-- Prev/Next buttons (always visible, disabled when no book) -->
+              <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                <Button Content="◀ Prev" Command="{Binding PreviousPageCommand}" />
+                <Button Content="Next ▶" Command="{Binding NextPageCommand}" />
+              </StackPanel>
+
+              <!-- Page counter centered -->
+              <TextBlock Grid.Column="1" Text="{Binding CurrentPageLabel}"
+                         Foreground="White" VerticalAlignment="Center"
+                         HorizontalAlignment="Center"
+                         FontSize="13" FontWeight="SemiBold" />
+
+              <!-- Fit mode toggle -->
+              <Button Grid.Column="2" Content="{Binding FitModeLabel}"
+                      Command="{Binding ToggleFitModeCommand}"
+                      ToolTip.Tip="Toggle Fit Page / Fit Width (F)"
+                      VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+
+        </Grid>
       </Grid>
     </Grid>
   </Grid>

@@ -7,4 +7,6 @@ public interface IReadingProgressRepository
     Task<ReadingProgress?> GetAsync(Guid comicBookId, CancellationToken cancellationToken = default);
 
     Task SaveAsync(ReadingProgress progress, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ReadingProgress>> GetAllAsync(CancellationToken cancellationToken = default);
 }
