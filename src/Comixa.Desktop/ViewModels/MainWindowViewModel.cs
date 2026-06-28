@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Threading;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
@@ -983,13 +984,68 @@ public sealed class MainWindowViewModel : ViewModelBase
         }
     }
 
+    private static readonly string _coverCacheDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "Comixa", "Desktop", "covers");
+
     private async Task LoadCoversAsync()
     {
-        foreach (var book in _allBooks.ToList())
+        Directory.CreateDirectory(_coverCacheDir);
+        var semaphore = new SemaphoreSlim(4);
+        var tasks = _allBooks.ToList().Select(async book =>
         {
-            var cover = await _pagePreviewLoader.LoadPageAsync(book.ComicBook, 0);
-            book.SetCoverImage(cover);
+            await semaphore.WaitAsync();
+            try
+            {
+                var cover = await LoadCoverWithCacheAsync(book.ComicBook);
+                book.SetCoverImage(cover);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
+        await Task.WhenAll(tasks);
+    }
+
+    private async Task<Bitmap?> LoadCoverWithCacheAsync(ComicBook comicBook)
+    {
+        var cacheFile = Path.Combine(_coverCacheDir, $"{comicBook.Id}.png");
+
+        if (File.Exists(cacheFile))
+        {
+            try { return await Task.Run(() => new Bitmap(cacheFile)); }
+            catch { /* regenerate if cache is corrupted */ }
         }
+
+        var fullPage = await _pagePreviewLoader.LoadPageAsync(comicBook, 0);
+        if (fullPage is null) return null;
+
+        var thumbnail = await Task.Run(() => CreateThumbnail(fullPage, 200, 300));
+        if (!ReferenceEquals(thumbnail, fullPage))
+            fullPage.Dispose();
+
+        try { await Task.Run(() => thumbnail.Save(cacheFile)); }
+        catch { /* ignore cache write errors (read-only fs, permissions, etc.) */ }
+
+        return thumbnail;
+    }
+
+    private static Bitmap CreateThumbnail(Bitmap source, int maxWidth, int maxHeight)
+    {
+        if (source.PixelSize.Width <= maxWidth && source.PixelSize.Height <= maxHeight)
+            return source;
+
+        var scaleX = (double)maxWidth / source.PixelSize.Width;
+        var scaleY = (double)maxHeight / source.PixelSize.Height;
+        var scale = Math.Min(scaleX, scaleY);
+
+        var newWidth = Math.Max(1, (int)(source.PixelSize.Width * scale));
+        var newHeight = Math.Max(1, (int)(source.PixelSize.Height * scale));
+
+        return source.CreateScaledBitmap(
+            new PixelSize(newWidth, newHeight),
+            BitmapInterpolationMode.LowQuality);
     }
 
     private async Task SaveProgressAsync()

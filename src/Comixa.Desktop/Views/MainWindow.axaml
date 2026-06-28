@@ -3,6 +3,7 @@
         xmlns:vm="using:Comixa.Desktop.ViewModels"
         x:Class="Comixa.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
+        x:CompileBindings="False"
         Title="{Binding Title}"
         Width="1360"
         Height="840"
@@ -452,7 +453,7 @@
       <!-- ══════════════════════════════════════════════════════════ -->
       <!-- ── Reader panel (col 4) ──────────────────────────────── -->
       <!-- ══════════════════════════════════════════════════════════ -->
-      <Grid Grid.Column="4">
+      <Grid Grid.Column="4" x:Name="ReaderGrid">
 
         <!-- Settings overlay -->
         <Border IsVisible="{Binding IsSettingsPanelVisible}"
@@ -543,14 +544,22 @@
                      HorizontalAlignment="Stretch" IsVisible="{Binding HasCurrentPageImage}" />
             </ScrollViewer>
 
-            <!-- Click zones -->
+            <!-- Click zones — custom template keeps Background="Transparent" hit-testable -->
             <Grid ColumnDefinitions="*,*" IsVisible="{Binding HasCurrentPageImage}">
-              <Button Grid.Column="0" Command="{Binding PageBackwardCommand}"
-                      Background="Transparent" BorderThickness="0" Padding="0"
-                      Opacity="0" Cursor="Hand" />
-              <Button Grid.Column="1" Command="{Binding PageForwardCommand}"
-                      Background="Transparent" BorderThickness="0" Padding="0"
-                      Opacity="0" Cursor="Hand" />
+              <Button Grid.Column="0" Command="{Binding PageBackwardCommand}" Cursor="Hand">
+                <Button.Template>
+                  <ControlTemplate>
+                    <Border Background="Transparent" />
+                  </ControlTemplate>
+                </Button.Template>
+              </Button>
+              <Button Grid.Column="1" Command="{Binding PageForwardCommand}" Cursor="Hand">
+                <Button.Template>
+                  <ControlTemplate>
+                    <Border Background="Transparent" />
+                  </ControlTemplate>
+                </Button.Template>
+              </Button>
             </Grid>
           </Grid>
 
