@@ -11,8 +11,6 @@ using Comixa.Reader.Scanning;
 
 namespace Comixa.Desktop.ViewModels;
 
-public enum FitMode { FitPage, FitWidth }
-
 public sealed class MainWindowViewModel : ViewModelBase
 {
     private readonly IFolderPicker _folderPicker;
@@ -24,6 +22,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly IUserPreferencesStore _preferencesStore;
     private readonly IShelfRepository _shelfRepository;
     private readonly IBookmarkRepository _bookmarkRepository;
+    private readonly ICoverImageCache _coverImageCache;
 
     private readonly List<ComicBookListItemViewModel> _allBooks = [];
     private readonly Dictionary<Guid, ReadingProgress> _progressMap = [];
@@ -80,7 +79,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         IReadingProgressRepository progressRepository,
         IUserPreferencesStore preferencesStore,
         IShelfRepository shelfRepository,
-        IBookmarkRepository bookmarkRepository)
+        IBookmarkRepository bookmarkRepository,
+        ICoverImageCache coverImageCache)
     {
         _folderPicker = folderPicker;
         _comicLibraryScanner = comicLibraryScanner;
@@ -91,6 +91,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         _preferencesStore = preferencesStore;
         _shelfRepository = shelfRepository;
         _bookmarkRepository = bookmarkRepository;
+        _coverImageCache = coverImageCache;
 
         ScanFolderCommand = new AsyncRelayCommand(ScanFolderAsync);
         BackToLibraryCommand = new RelayCommand(BackToLibrary);
@@ -163,11 +164,11 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ObservableCollection<Bitmap?> VerticalPages { get; } = [];
     public ObservableCollection<ShelfViewModel> Shelves { get; } = [];
 
-    // Commands — navigation
+    // Commands - navigation
     public RelayCommand NavigateToAllBooksCommand { get; }
     public RelayCommand NavigateToSeriesCommand { get; }
 
-    // Commands — reader
+    // Commands - reader
     public AsyncRelayCommand ScanFolderCommand { get; }
     public RelayCommand BackToLibraryCommand { get; }
     public RelayCommand<ComicBookListItemViewModel> OpenBookCommand { get; }
@@ -180,7 +181,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     public RelayCommand ToggleFitModeCommand { get; }
     public AsyncRelayCommand ToggleBookmarkCommand { get; }
 
-    // Commands — library
+    // Commands - library
     public RelayCommand ToggleSettingsPanelCommand { get; }
     public RelayCommand<string> SetSortOrderCommand { get; }
     public RelayCommand ToggleUnreadOnlyCommand { get; }
@@ -189,19 +190,19 @@ public sealed class MainWindowViewModel : ViewModelBase
     public RelayCommand TogglePdfFilterCommand { get; }
     public RelayCommand ClearSearchCommand { get; }
 
-    // Commands — shelves
+    // Commands - shelves
     public RelayCommand StartCreateShelfCommand { get; }
     public AsyncRelayCommand ConfirmNewShelfCommand { get; }
     public RelayCommand CancelNewShelfCommand { get; }
 
-    // Commands — settings
+    // Commands - settings
     public RelayCommand<string> SetReadingDirectionCommand { get; }
     public RelayCommand ToggleThemeCommand { get; }
 
     // Window title
     public string Title => SelectedBook is null
         ? "Comixa Desktop"
-        : $"{SelectedBook.Title} — Comixa";
+        : $"{SelectedBook.Title} - Comixa";
 
     // Navigation state
     public bool IsViewAllBooks => _activeShelfId is null && !_isSeriesView;
@@ -369,7 +370,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     public bool IsCurrentPageBookmarked =>
         _currentBookBookmarks.Any(b => b.PageNumber == _currentPageIndex);
 
-    public string BookmarkIcon => IsCurrentPageBookmarked ? "🔖" : "📄";
+    public string BookmarkIcon => IsCurrentPageBookmarked ? "Bookmarked" : "Bookmark";
 
     // --- Initialization ---
 
@@ -984,20 +985,15 @@ public sealed class MainWindowViewModel : ViewModelBase
         }
     }
 
-    private static readonly string _coverCacheDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "Comixa", "Desktop", "covers");
-
     private async Task LoadCoversAsync()
     {
-        Directory.CreateDirectory(_coverCacheDir);
         var semaphore = new SemaphoreSlim(4);
         var tasks = _allBooks.ToList().Select(async book =>
         {
             await semaphore.WaitAsync();
             try
             {
-                var cover = await LoadCoverWithCacheAsync(book.ComicBook);
+                var cover = await _coverImageCache.LoadCoverAsync(book.ComicBook);
                 book.SetCoverImage(cover);
             }
             finally
@@ -1006,46 +1002,6 @@ public sealed class MainWindowViewModel : ViewModelBase
             }
         });
         await Task.WhenAll(tasks);
-    }
-
-    private async Task<Bitmap?> LoadCoverWithCacheAsync(ComicBook comicBook)
-    {
-        var cacheFile = Path.Combine(_coverCacheDir, $"{comicBook.Id}.png");
-
-        if (File.Exists(cacheFile))
-        {
-            try { return await Task.Run(() => new Bitmap(cacheFile)); }
-            catch { /* regenerate if cache is corrupted */ }
-        }
-
-        var fullPage = await _pagePreviewLoader.LoadPageAsync(comicBook, 0);
-        if (fullPage is null) return null;
-
-        var thumbnail = await Task.Run(() => CreateThumbnail(fullPage, 200, 300));
-        if (!ReferenceEquals(thumbnail, fullPage))
-            fullPage.Dispose();
-
-        try { await Task.Run(() => thumbnail.Save(cacheFile)); }
-        catch { /* ignore cache write errors (read-only fs, permissions, etc.) */ }
-
-        return thumbnail;
-    }
-
-    private static Bitmap CreateThumbnail(Bitmap source, int maxWidth, int maxHeight)
-    {
-        if (source.PixelSize.Width <= maxWidth && source.PixelSize.Height <= maxHeight)
-            return source;
-
-        var scaleX = (double)maxWidth / source.PixelSize.Width;
-        var scaleY = (double)maxHeight / source.PixelSize.Height;
-        var scale = Math.Min(scaleX, scaleY);
-
-        var newWidth = Math.Max(1, (int)(source.PixelSize.Width * scale));
-        var newHeight = Math.Max(1, (int)(source.PixelSize.Height * scale));
-
-        return source.CreateScaledBitmap(
-            new PixelSize(newWidth, newHeight),
-            BitmapInterpolationMode.LowQuality);
     }
 
     private async Task SaveProgressAsync()

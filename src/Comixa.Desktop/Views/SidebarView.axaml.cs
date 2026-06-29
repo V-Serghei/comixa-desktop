@@ -2,9 +2,9 @@ using Avalonia.Controls;
 
 namespace Comixa.Desktop.Views;
 
-public sealed partial class MainWindow : Window
+public sealed partial class SidebarView : UserControl
 {
-    public MainWindow()
+    public SidebarView()
     {
         InitializeComponent();
     }

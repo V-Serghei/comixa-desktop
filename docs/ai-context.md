@@ -8,7 +8,7 @@ MVP 1 - Local Desktop Reader Core.
 
 ## Architectural Preferences
 
-- C# and .NET 8 LTS.
+- C# and .NET 10.
 - Avalonia UI for cross-platform desktop UI.
 - MVVM for presentation logic.
 - SQLite for local persistence.

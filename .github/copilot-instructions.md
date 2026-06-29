@@ -2,7 +2,7 @@
 
 Comixa Desktop is an original local-first comic reader companion app. It is not a clone.
 
-- Target .NET 8 and Avalonia UI.
+- Target .NET 10 and Avalonia UI.
 - Use MVVM in the desktop app.
 - Prefer cross-platform .NET APIs.
 - Avoid Windows-only APIs unless isolated behind interfaces.

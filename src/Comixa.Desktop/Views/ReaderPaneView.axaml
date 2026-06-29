@@ -1,0 +1,194 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Comixa.Desktop.ViewModels"
+             x:Class="Comixa.Desktop.Views.ReaderPaneView"
+             x:DataType="vm:MainWindowViewModel"
+             x:CompileBindings="False">
+  <Grid x:Name="ReaderGrid">
+    <Border IsVisible="{Binding IsSettingsPanelVisible}"
+            Background="{DynamicResource ComixaSurfaceBrush}">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="24"
+                    MaxWidth="440"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Margin="40">
+          <TextBlock Text="Settings"
+                     FontSize="22"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+
+          <StackPanel Spacing="10">
+            <TextBlock Text="READING DIRECTION"
+                       FontSize="10"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.2"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <StackPanel Spacing="8">
+              <RadioButton Content="Left to Right"
+                           GroupName="Direction"
+                           IsChecked="{Binding IsLeftToRight, Mode=OneWay}"
+                           Command="{Binding SetReadingDirectionCommand}"
+                           CommandParameter="ltr" />
+              <RadioButton Content="Right to Left"
+                           GroupName="Direction"
+                           IsChecked="{Binding IsRightToLeft, Mode=OneWay}"
+                           Command="{Binding SetReadingDirectionCommand}"
+                           CommandParameter="rtl" />
+              <RadioButton Content="Top to Bottom"
+                           GroupName="Direction"
+                           IsChecked="{Binding IsTopToBottom, Mode=OneWay}"
+                           Command="{Binding SetReadingDirectionCommand}"
+                           CommandParameter="ttb" />
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel Spacing="6">
+            <TextBlock Text="KEYBOARD SHORTCUTS"
+                       FontSize="10"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.2"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <TextBlock Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                       FontSize="12"
+                       Text="Arrows - navigate pages&#xA;Page Up / Page Down - navigate pages&#xA;Home / End - first / last page&#xA;F - Fit Page / Fit Width&#xA;B - toggle bookmark&#xA;S - settings&#xA;Right-click card - mark read / shelves" />
+          </StackPanel>
+
+          <Button Content="Close Settings"
+                  Command="{Binding ToggleSettingsPanelCommand}"
+                  Background="{DynamicResource ComixaPrimaryBrush}"
+                  Foreground="#001B12" />
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <Grid RowDefinitions="Auto,*,Auto"
+          IsVisible="{Binding !IsSettingsPanelVisible}"
+          Background="#000000">
+      <Border Padding="12,7" Background="#DD000000">
+        <Grid ColumnDefinitions="*,Auto,Auto">
+          <TextBlock Text="{Binding ReaderStatus}"
+                     Foreground="White"
+                     FontWeight="SemiBold"
+                     TextTrimming="CharacterEllipsis"
+                     VerticalAlignment="Center" />
+          <ProgressBar Grid.Column="1"
+                       IsIndeterminate="True"
+                       IsVisible="{Binding IsPageLoading}"
+                       Width="80"
+                       Height="3"
+                       Margin="8,0"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource ComixaPrimaryBrush}" />
+          <TextBlock Grid.Column="2"
+                     Text="{Binding CurrentPageLabel}"
+                     Foreground="#D0FFFFFF"
+                     VerticalAlignment="Center"
+                     MinWidth="80"
+                     TextAlignment="Right" />
+        </Grid>
+      </Border>
+
+      <Grid Grid.Row="1" IsVisible="{Binding !IsVerticalMode}">
+        <ScrollViewer IsVisible="{Binding IsFitPageMode}"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto">
+          <Grid MinHeight="400">
+            <Image Source="{Binding CurrentPageImage}"
+                   Stretch="Uniform"
+                   Margin="20"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   IsVisible="{Binding HasCurrentPageImage}" />
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="12"
+                        IsVisible="{Binding !HasSelectedBook}">
+              <TextBlock Text="Select a book to start reading"
+                         Foreground="White"
+                         FontSize="18"
+                         FontWeight="SemiBold"
+                         HorizontalAlignment="Center" />
+              <TextBlock Text="Click a comic in the library or use the keyboard to navigate"
+                         Foreground="#A0FFFFFF"
+                         TextWrapping="Wrap"
+                         MaxWidth="320"
+                         TextAlignment="Center"
+                         FontSize="12" />
+            </StackPanel>
+          </Grid>
+        </ScrollViewer>
+
+        <ScrollViewer IsVisible="{Binding IsFitWidthMode}"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <Image Source="{Binding CurrentPageImage}"
+                 Stretch="Uniform"
+                 HorizontalAlignment="Stretch"
+                 IsVisible="{Binding HasCurrentPageImage}" />
+        </ScrollViewer>
+
+        <Grid ColumnDefinitions="*,*" IsVisible="{Binding HasCurrentPageImage}">
+          <Button Grid.Column="0" Command="{Binding PageBackwardCommand}" Cursor="Hand">
+            <Button.Template>
+              <ControlTemplate>
+                <Border Background="Transparent" />
+              </ControlTemplate>
+            </Button.Template>
+          </Button>
+          <Button Grid.Column="1" Command="{Binding PageForwardCommand}" Cursor="Hand">
+            <Button.Template>
+              <ControlTemplate>
+                <Border Background="Transparent" />
+              </ControlTemplate>
+            </Button.Template>
+          </Button>
+        </Grid>
+      </Grid>
+
+      <ScrollViewer Grid.Row="1"
+                    IsVisible="{Binding IsVerticalMode}"
+                    VerticalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding VerticalPages}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Image Source="{Binding}" Stretch="Uniform" Margin="0,2" MaxWidth="960" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <Border Grid.Row="2" Padding="12,9" Background="#DD000000">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+            <Button Content="Previous"
+                    Command="{Binding PreviousPageCommand}"
+                    ToolTip.Tip="Previous page" />
+            <Button Content="Next"
+                    Command="{Binding NextPageCommand}"
+                    ToolTip.Tip="Next page" />
+          </StackPanel>
+
+          <TextBlock Grid.Column="1"
+                     Text="{Binding CurrentPageLabel}"
+                     Foreground="White"
+                     VerticalAlignment="Center"
+                     HorizontalAlignment="Center"
+                     FontSize="13"
+                     FontWeight="SemiBold" />
+
+          <Button Grid.Column="2"
+                  Content="{Binding BookmarkIcon}"
+                  Command="{Binding ToggleBookmarkCommand}"
+                  Margin="0,0,6,0"
+                  ToolTip.Tip="Toggle bookmark (B)" />
+
+          <Button Grid.Column="3"
+                  Content="{Binding FitModeLabel}"
+                  Command="{Binding ToggleFitModeCommand}"
+                  ToolTip.Tip="Fit Page / Fit Width (F)" />
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>
