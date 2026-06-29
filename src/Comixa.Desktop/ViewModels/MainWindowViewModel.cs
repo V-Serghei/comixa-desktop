@@ -63,6 +63,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private string _readerStatus = "Select a book to start reading.";
     private bool _isLoadingLibrary;
     private bool _isPageLoading;
+    private double _readerZoom = 1.0;
 
     // Bookmarks
     private List<Bookmark> _currentBookBookmarks = [];
@@ -279,6 +280,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     public bool IsFitPageMode => _fitMode == FitMode.FitPage;
     public bool IsFitWidthMode => _fitMode == FitMode.FitWidth;
     public string FitModeLabel => _fitMode == FitMode.FitPage ? "Fit Page" : "Fit Width";
+    public double ReaderZoom => _readerZoom;
+    public string ZoomLabel => $"{_readerZoom:P0}";
 
     // Reader state
     public ComicBookListItemViewModel? SelectedBook
@@ -811,6 +814,21 @@ public sealed class MainWindowViewModel : ViewModelBase
         RaisePropertyChanged(nameof(IsFitPageMode));
         RaisePropertyChanged(nameof(IsFitWidthMode));
         RaisePropertyChanged(nameof(FitModeLabel));
+    }
+
+    public void AdjustReaderZoom(double wheelDelta)
+    {
+        var factor = wheelDelta > 0 ? 1.1 : 1 / 1.1;
+        var nextZoom = Math.Clamp(_readerZoom * factor, 0.25, 4.0);
+
+        if (Math.Abs(nextZoom - _readerZoom) < 0.001)
+        {
+            return;
+        }
+
+        _readerZoom = nextZoom;
+        RaisePropertyChanged(nameof(ReaderZoom));
+        RaisePropertyChanged(nameof(ZoomLabel));
     }
 
     private void ToggleTheme()

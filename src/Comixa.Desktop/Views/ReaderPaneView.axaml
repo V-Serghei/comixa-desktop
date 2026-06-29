@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:media="using:Avalonia.Media"
              xmlns:vm="using:Comixa.Desktop.ViewModels"
              x:Class="Comixa.Desktop.Views.ReaderPaneView"
              x:DataType="vm:MainWindowViewModel"
@@ -89,17 +90,24 @@
         </Grid>
       </Border>
 
-      <Grid Grid.Row="1" IsVisible="{Binding !IsVerticalMode}">
+      <Grid x:Name="ReaderPageHost"
+            Grid.Row="1"
+            IsVisible="{Binding !IsVerticalMode}"
+            Background="Transparent">
         <ScrollViewer IsVisible="{Binding IsFitPageMode}"
                       HorizontalScrollBarVisibility="Auto"
                       VerticalScrollBarVisibility="Auto">
           <Grid MinHeight="400">
-            <Image Source="{Binding CurrentPageImage}"
-                   Stretch="Uniform"
-                   Margin="20"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   IsVisible="{Binding HasCurrentPageImage}" />
+            <LayoutTransformControl Margin="20"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding HasCurrentPageImage}">
+              <LayoutTransformControl.LayoutTransform>
+                <media:ScaleTransform ScaleX="{Binding ReaderZoom}" ScaleY="{Binding ReaderZoom}" />
+              </LayoutTransformControl.LayoutTransform>
+              <Image Source="{Binding CurrentPageImage}"
+                     Stretch="Uniform" />
+            </LayoutTransformControl>
             <StackPanel HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         Spacing="12"
@@ -122,28 +130,16 @@
         <ScrollViewer IsVisible="{Binding IsFitWidthMode}"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
-          <Image Source="{Binding CurrentPageImage}"
-                 Stretch="Uniform"
-                 HorizontalAlignment="Stretch"
-                 IsVisible="{Binding HasCurrentPageImage}" />
+          <LayoutTransformControl HorizontalAlignment="Stretch"
+                                  IsVisible="{Binding HasCurrentPageImage}">
+            <LayoutTransformControl.LayoutTransform>
+              <media:ScaleTransform ScaleX="{Binding ReaderZoom}" ScaleY="{Binding ReaderZoom}" />
+            </LayoutTransformControl.LayoutTransform>
+            <Image Source="{Binding CurrentPageImage}"
+                   Stretch="Uniform"
+                   HorizontalAlignment="Stretch" />
+          </LayoutTransformControl>
         </ScrollViewer>
-
-        <Grid ColumnDefinitions="*,*" IsVisible="{Binding HasCurrentPageImage}">
-          <Button Grid.Column="0" Command="{Binding PageBackwardCommand}" Cursor="Hand">
-            <Button.Template>
-              <ControlTemplate>
-                <Border Background="Transparent" />
-              </ControlTemplate>
-            </Button.Template>
-          </Button>
-          <Button Grid.Column="1" Command="{Binding PageForwardCommand}" Cursor="Hand">
-            <Button.Template>
-              <ControlTemplate>
-                <Border Background="Transparent" />
-              </ControlTemplate>
-            </Button.Template>
-          </Button>
-        </Grid>
       </Grid>
 
       <ScrollViewer Grid.Row="1"
@@ -159,7 +155,7 @@
       </ScrollViewer>
 
       <Border Grid.Row="2" Padding="12,9" Background="#DD000000">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
             <Button Content="Previous"
                     Command="{Binding PreviousPageCommand}"
@@ -177,13 +173,20 @@
                      FontSize="13"
                      FontWeight="SemiBold" />
 
-          <Button Grid.Column="2"
+          <TextBlock Grid.Column="2"
+                     Text="{Binding ZoomLabel}"
+                     Foreground="#B8FFFFFF"
+                     VerticalAlignment="Center"
+                     Margin="0,0,8,0"
+                     FontSize="12" />
+
+          <Button Grid.Column="3"
                   Content="{Binding BookmarkIcon}"
                   Command="{Binding ToggleBookmarkCommand}"
                   Margin="0,0,6,0"
                   ToolTip.Tip="Toggle bookmark (B)" />
 
-          <Button Grid.Column="3"
+          <Button Grid.Column="4"
                   Content="{Binding FitModeLabel}"
                   Command="{Binding ToggleFitModeCommand}"
                   ToolTip.Tip="Fit Page / Fit Width (F)" />
