@@ -1,6 +1,6 @@
 # Architecture
 
-Comixa Desktop uses a small layered architecture built around .NET 8 and Avalonia.
+Comixa Desktop uses a small layered architecture built around .NET 10 and Avalonia.
 
 ## Projects
 

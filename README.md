@@ -14,7 +14,7 @@ Comixa Desktop starts Windows-first, while the architecture must stay friendly t
 
 ## Tech Stack
 
-- C# and .NET 8 LTS
+- C# and .NET 10
 - Avalonia UI
 - MVVM
 - SQLite
@@ -53,7 +53,7 @@ dotnet run --project src/Comixa.Desktop/Comixa.Desktop.csproj
 dotnet format
 ```
 
-The repository includes `global.json` to pin development to .NET 8.
+The repository includes `global.json` to pin development to .NET 10.
 
 ## Repository Structure
 

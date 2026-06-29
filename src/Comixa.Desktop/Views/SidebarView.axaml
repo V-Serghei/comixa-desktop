@@ -1,0 +1,142 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Comixa.Desktop.ViewModels"
+             x:Class="Comixa.Desktop.Views.SidebarView"
+             x:DataType="vm:MainWindowViewModel"
+             x:CompileBindings="False">
+  <Border Background="{DynamicResource ComixaSurfaceBrush}">
+    <Grid RowDefinitions="*,Auto">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,8,0,8">
+          <TextBlock Text="LIBRARY"
+                     Margin="16,8,0,6"
+                     FontSize="9"
+                     FontWeight="SemiBold"
+                     LetterSpacing="1.5"
+                     Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+
+          <Panel>
+            <Border IsVisible="{Binding IsViewAllBooks}"
+                    BorderBrush="{DynamicResource ComixaPrimaryBrush}"
+                    BorderThickness="3,0,0,0" />
+            <Button Command="{Binding NavigateToAllBooksCommand}"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Left"
+                    Padding="16,8"
+                    Margin="0,1"
+                    Background="Transparent"
+                    BorderThickness="0">
+              <TextBlock Text="All Books" FontSize="13" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+            </Button>
+          </Panel>
+
+          <Panel>
+            <Border IsVisible="{Binding IsViewSeries}"
+                    BorderBrush="{DynamicResource ComixaPrimaryBrush}"
+                    BorderThickness="3,0,0,0" />
+            <Button Command="{Binding NavigateToSeriesCommand}"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Left"
+                    Padding="16,8"
+                    Margin="0,1"
+                    Background="Transparent"
+                    BorderThickness="0">
+              <TextBlock Text="Series" FontSize="13" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+            </Button>
+          </Panel>
+
+          <Grid ColumnDefinitions="*,Auto" Margin="16,14,8,4">
+            <TextBlock Text="SHELVES"
+                       FontSize="9"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.5"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                       VerticalAlignment="Center" />
+            <Button Grid.Column="1"
+                    Content="+"
+                    Command="{Binding StartCreateShelfCommand}"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Padding="4,2"
+                    FontSize="16"
+                    Foreground="{DynamicResource ComixaPrimaryBrush}"
+                    ToolTip.Tip="New shelf" />
+          </Grid>
+
+          <Grid IsVisible="{Binding IsCreatingShelf}"
+                ColumnDefinitions="*,Auto,Auto"
+                Margin="8,0,8,6">
+            <TextBox Text="{Binding NewShelfName}" PlaceholderText="Shelf name..." FontSize="12" />
+            <Button Grid.Column="1"
+                    Content="OK"
+                    Command="{Binding ConfirmNewShelfCommand}"
+                    Background="{DynamicResource ComixaPrimaryBrush}"
+                    Foreground="#001B12"
+                    Margin="4,0,0,0"
+                    Padding="6,4"
+                    ToolTip.Tip="Create" />
+            <Button Grid.Column="2"
+                    Content="Cancel"
+                    Command="{Binding CancelNewShelfCommand}"
+                    Background="Transparent"
+                    Margin="2,0,0,0"
+                    Padding="6,4"
+                    ToolTip.Tip="Cancel" />
+          </Grid>
+
+          <ItemsControl ItemsSource="{Binding Shelves}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ShelfViewModel">
+                <Grid ColumnDefinitions="*,Auto" Margin="4,1">
+                  <Button Command="{Binding SelectCommand}"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Left"
+                          Padding="16,7"
+                          Background="Transparent"
+                          BorderThickness="0">
+                    <TextBlock Text="{Binding Name}"
+                               FontSize="12"
+                               Foreground="{DynamicResource ComixaOnSurfaceBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               MaxWidth="108" />
+                  </Button>
+                  <Button Grid.Column="1"
+                          Content="X"
+                          Command="{Binding DeleteCommand}"
+                          Background="Transparent"
+                          BorderThickness="0"
+                          Padding="6,7"
+                          FontSize="12"
+                          Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                          ToolTip.Tip="Delete shelf" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </ScrollViewer>
+
+      <Border Grid.Row="1"
+              BorderBrush="{DynamicResource ComixaOutlineBrush}"
+              BorderThickness="0,1,0,0">
+        <Button Command="{Binding ToggleThemeCommand}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Left"
+                Padding="16,10"
+                Background="Transparent"
+                BorderThickness="0">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="Light mode"
+                       FontSize="12"
+                       IsVisible="{Binding IsDarkTheme}"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <TextBlock Text="Dark mode"
+                       FontSize="12"
+                       IsVisible="{Binding IsLightTheme}"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+          </StackPanel>
+        </Button>
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>
