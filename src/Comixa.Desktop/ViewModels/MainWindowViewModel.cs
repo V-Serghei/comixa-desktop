@@ -11,8 +11,6 @@ using Comixa.Reader.Scanning;
 
 namespace Comixa.Desktop.ViewModels;
 
-public enum FitMode { FitPage, FitWidth }
-
 public sealed class MainWindowViewModel : ViewModelBase
 {
     private readonly IFolderPicker _folderPicker;
@@ -24,6 +22,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private readonly IUserPreferencesStore _preferencesStore;
     private readonly IShelfRepository _shelfRepository;
     private readonly IBookmarkRepository _bookmarkRepository;
+    private readonly ICoverImageCache _coverImageCache;
 
     private readonly List<ComicBookListItemViewModel> _allBooks = [];
     private readonly Dictionary<Guid, ReadingProgress> _progressMap = [];
@@ -64,11 +63,14 @@ public sealed class MainWindowViewModel : ViewModelBase
     private string _readerStatus = "Select a book to start reading.";
     private bool _isLoadingLibrary;
     private bool _isPageLoading;
+    private double _readerZoom = 1.0;
 
     // Bookmarks
     private List<Bookmark> _currentBookBookmarks = [];
 
     private CancellationTokenSource? _verticalPagesCts;
+    private CancellationTokenSource? _currentPageCts;
+    private int _currentPageLoadVersion;
     private SingleLibraryItemViewModel? _openSingleItem;
 
     public MainWindowViewModel(
@@ -80,7 +82,8 @@ public sealed class MainWindowViewModel : ViewModelBase
         IReadingProgressRepository progressRepository,
         IUserPreferencesStore preferencesStore,
         IShelfRepository shelfRepository,
-        IBookmarkRepository bookmarkRepository)
+        IBookmarkRepository bookmarkRepository,
+        ICoverImageCache coverImageCache)
     {
         _folderPicker = folderPicker;
         _comicLibraryScanner = comicLibraryScanner;
@@ -91,6 +94,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         _preferencesStore = preferencesStore;
         _shelfRepository = shelfRepository;
         _bookmarkRepository = bookmarkRepository;
+        _coverImageCache = coverImageCache;
 
         ScanFolderCommand = new AsyncRelayCommand(ScanFolderAsync);
         BackToLibraryCommand = new RelayCommand(BackToLibrary);
@@ -163,11 +167,11 @@ public sealed class MainWindowViewModel : ViewModelBase
     public ObservableCollection<Bitmap?> VerticalPages { get; } = [];
     public ObservableCollection<ShelfViewModel> Shelves { get; } = [];
 
-    // Commands — navigation
+    // Commands - navigation
     public RelayCommand NavigateToAllBooksCommand { get; }
     public RelayCommand NavigateToSeriesCommand { get; }
 
-    // Commands — reader
+    // Commands - reader
     public AsyncRelayCommand ScanFolderCommand { get; }
     public RelayCommand BackToLibraryCommand { get; }
     public RelayCommand<ComicBookListItemViewModel> OpenBookCommand { get; }
@@ -180,7 +184,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     public RelayCommand ToggleFitModeCommand { get; }
     public AsyncRelayCommand ToggleBookmarkCommand { get; }
 
-    // Commands — library
+    // Commands - library
     public RelayCommand ToggleSettingsPanelCommand { get; }
     public RelayCommand<string> SetSortOrderCommand { get; }
     public RelayCommand ToggleUnreadOnlyCommand { get; }
@@ -189,19 +193,19 @@ public sealed class MainWindowViewModel : ViewModelBase
     public RelayCommand TogglePdfFilterCommand { get; }
     public RelayCommand ClearSearchCommand { get; }
 
-    // Commands — shelves
+    // Commands - shelves
     public RelayCommand StartCreateShelfCommand { get; }
     public AsyncRelayCommand ConfirmNewShelfCommand { get; }
     public RelayCommand CancelNewShelfCommand { get; }
 
-    // Commands — settings
+    // Commands - settings
     public RelayCommand<string> SetReadingDirectionCommand { get; }
     public RelayCommand ToggleThemeCommand { get; }
 
     // Window title
     public string Title => SelectedBook is null
         ? "Comixa Desktop"
-        : $"{SelectedBook.Title} — Comixa";
+        : $"{SelectedBook.Title} - Comixa";
 
     // Navigation state
     public bool IsViewAllBooks => _activeShelfId is null && !_isSeriesView;
@@ -278,6 +282,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     public bool IsFitPageMode => _fitMode == FitMode.FitPage;
     public bool IsFitWidthMode => _fitMode == FitMode.FitWidth;
     public string FitModeLabel => _fitMode == FitMode.FitPage ? "Fit Page" : "Fit Width";
+    public double ReaderZoom => _readerZoom;
+    public string ZoomLabel => $"{_readerZoom:P0}";
 
     // Reader state
     public ComicBookListItemViewModel? SelectedBook
@@ -369,7 +375,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     public bool IsCurrentPageBookmarked =>
         _currentBookBookmarks.Any(b => b.PageNumber == _currentPageIndex);
 
-    public string BookmarkIcon => IsCurrentPageBookmarked ? "🔖" : "📄";
+    public string BookmarkIcon => IsCurrentPageBookmarked ? "Bookmarked" : "Bookmark";
 
     // --- Initialization ---
 
@@ -812,6 +818,21 @@ public sealed class MainWindowViewModel : ViewModelBase
         RaisePropertyChanged(nameof(FitModeLabel));
     }
 
+    public void AdjustReaderZoom(double wheelDelta)
+    {
+        var factor = wheelDelta > 0 ? 1.1 : 1 / 1.1;
+        var nextZoom = Math.Clamp(_readerZoom * factor, 0.25, 4.0);
+
+        if (Math.Abs(nextZoom - _readerZoom) < 0.001)
+        {
+            return;
+        }
+
+        _readerZoom = nextZoom;
+        RaisePropertyChanged(nameof(ReaderZoom));
+        RaisePropertyChanged(nameof(ZoomLabel));
+    }
+
     private void ToggleTheme()
     {
         _isDarkTheme = !_isDarkTheme;
@@ -924,11 +945,15 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     private async Task LoadCurrentPageAsync()
     {
-        CurrentPageImage = null;
-        IsPageLoading = false;
+        _currentPageCts?.Cancel();
+        _currentPageCts = new CancellationTokenSource();
+        var cts = _currentPageCts;
+        var loadVersion = ++_currentPageLoadVersion;
 
         if (SelectedBook is null)
         {
+            CurrentPageImage = null;
+            IsPageLoading = false;
             ReaderStatus = "Select a book to start reading.";
             return;
         }
@@ -944,14 +969,56 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         IsPageLoading = true;
         ReaderStatus = book.Title;
-        CurrentPageImage = await _pagePreviewLoader.LoadPageAsync(book, CurrentPageIndex);
-        IsPageLoading = false;
 
-        if (CurrentPageImage is null)
-            ReaderStatus = "Page could not be loaded.";
+        try
+        {
+            var page = await _pagePreviewLoader.LoadPageAsync(book, CurrentPageIndex, cts.Token);
+            if (cts.IsCancellationRequested || loadVersion != _currentPageLoadVersion)
+            {
+                return;
+            }
+
+            CurrentPageImage = page;
+
+            if (CurrentPageImage is null)
+                ReaderStatus = "Page could not be loaded.";
+            else
+                _ = PrefetchAdjacentPagesAsync(book, CurrentPageIndex);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        finally
+        {
+            if (!cts.IsCancellationRequested && loadVersion == _currentPageLoadVersion)
+            {
+                IsPageLoading = false;
+            }
+        }
 
         RaisePropertyChanged(nameof(CurrentPageLabel));
         RefreshAllNavCanExecute();
+    }
+
+    private async Task PrefetchAdjacentPagesAsync(ComicBook book, int pageIndex)
+    {
+        try
+        {
+            var pageCount = book.PageCount;
+            var pageIndexes = new[] { pageIndex + 1, pageIndex - 1 };
+
+            foreach (var index in pageIndexes)
+            {
+                if (index < 0 || index >= pageCount)
+                {
+                    continue;
+                }
+
+                await _pagePreviewLoader.LoadPageAsync(book, index, CancellationToken.None);
+            }
+        }
+        catch (OperationCanceledException) { }
     }
 
     private async Task LoadVerticalPagesAsync(ComicBook comicBook)
@@ -984,20 +1051,15 @@ public sealed class MainWindowViewModel : ViewModelBase
         }
     }
 
-    private static readonly string _coverCacheDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "Comixa", "Desktop", "covers");
-
     private async Task LoadCoversAsync()
     {
-        Directory.CreateDirectory(_coverCacheDir);
         var semaphore = new SemaphoreSlim(4);
         var tasks = _allBooks.ToList().Select(async book =>
         {
             await semaphore.WaitAsync();
             try
             {
-                var cover = await LoadCoverWithCacheAsync(book.ComicBook);
+                var cover = await _coverImageCache.LoadCoverAsync(book.ComicBook);
                 book.SetCoverImage(cover);
             }
             finally
@@ -1008,52 +1070,14 @@ public sealed class MainWindowViewModel : ViewModelBase
         await Task.WhenAll(tasks);
     }
 
-    private async Task<Bitmap?> LoadCoverWithCacheAsync(ComicBook comicBook)
-    {
-        var cacheFile = Path.Combine(_coverCacheDir, $"{comicBook.Id}.png");
-
-        if (File.Exists(cacheFile))
-        {
-            try { return await Task.Run(() => new Bitmap(cacheFile)); }
-            catch { /* regenerate if cache is corrupted */ }
-        }
-
-        var fullPage = await _pagePreviewLoader.LoadPageAsync(comicBook, 0);
-        if (fullPage is null) return null;
-
-        var thumbnail = await Task.Run(() => CreateThumbnail(fullPage, 200, 300));
-        if (!ReferenceEquals(thumbnail, fullPage))
-            fullPage.Dispose();
-
-        try { await Task.Run(() => thumbnail.Save(cacheFile)); }
-        catch { /* ignore cache write errors (read-only fs, permissions, etc.) */ }
-
-        return thumbnail;
-    }
-
-    private static Bitmap CreateThumbnail(Bitmap source, int maxWidth, int maxHeight)
-    {
-        if (source.PixelSize.Width <= maxWidth && source.PixelSize.Height <= maxHeight)
-            return source;
-
-        var scaleX = (double)maxWidth / source.PixelSize.Width;
-        var scaleY = (double)maxHeight / source.PixelSize.Height;
-        var scale = Math.Min(scaleX, scaleY);
-
-        var newWidth = Math.Max(1, (int)(source.PixelSize.Width * scale));
-        var newHeight = Math.Max(1, (int)(source.PixelSize.Height * scale));
-
-        return source.CreateScaledBitmap(
-            new PixelSize(newWidth, newHeight),
-            BitmapInterpolationMode.LowQuality);
-    }
-
     private async Task SaveProgressAsync()
     {
-        if (SelectedBook is null) return;
-        var progress = new ReadingProgress(SelectedBook.ComicBook.Id, CurrentPageIndex, DateTimeOffset.UtcNow);
-        await _progressRepository.SaveAsync(progress);
-        SelectedBook.SetProgress(progress);
+        var selectedBook = SelectedBook;
+        if (selectedBook is null) return;
+
+        var progress = new ReadingProgress(selectedBook.ComicBook.Id, CurrentPageIndex, DateTimeOffset.UtcNow);
+        await Task.Run(() => _progressRepository.SaveAsync(progress));
+        selectedBook.SetProgress(progress);
         _progressMap[progress.ComicBookId] = progress;
     }
 

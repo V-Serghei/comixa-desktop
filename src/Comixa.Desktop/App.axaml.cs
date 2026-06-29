@@ -37,16 +37,18 @@ public sealed partial class App : Application
             IUserPreferencesStore preferencesStore = new JsonUserPreferencesStore();
 
             var mainWindow = new MainWindow();
+            var pagePreviewLoader = new LocalPagePreviewLoader();
             mainWindow.DataContext = new MainWindowViewModel(
                 new AvaloniaFolderPicker(mainWindow),
                 new LocalComicLibraryScanner(),
                 new JsonUserLibrarySettingsStore(),
-                new LocalPagePreviewLoader(),
+                pagePreviewLoader,
                 comicRepository,
                 progressRepository,
                 preferencesStore,
                 shelfRepository,
-                bookmarkRepository);
+                bookmarkRepository,
+                new AvaloniaCoverImageCache(pagePreviewLoader));
 
             desktop.MainWindow = mainWindow;
         }
