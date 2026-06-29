@@ -69,6 +69,8 @@ public sealed class MainWindowViewModel : ViewModelBase
     private List<Bookmark> _currentBookBookmarks = [];
 
     private CancellationTokenSource? _verticalPagesCts;
+    private CancellationTokenSource? _currentPageCts;
+    private int _currentPageLoadVersion;
     private SingleLibraryItemViewModel? _openSingleItem;
 
     public MainWindowViewModel(
@@ -943,11 +945,15 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     private async Task LoadCurrentPageAsync()
     {
-        CurrentPageImage = null;
-        IsPageLoading = false;
+        _currentPageCts?.Cancel();
+        _currentPageCts = new CancellationTokenSource();
+        var cts = _currentPageCts;
+        var loadVersion = ++_currentPageLoadVersion;
 
         if (SelectedBook is null)
         {
+            CurrentPageImage = null;
+            IsPageLoading = false;
             ReaderStatus = "Select a book to start reading.";
             return;
         }
@@ -963,14 +969,56 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         IsPageLoading = true;
         ReaderStatus = book.Title;
-        CurrentPageImage = await _pagePreviewLoader.LoadPageAsync(book, CurrentPageIndex);
-        IsPageLoading = false;
 
-        if (CurrentPageImage is null)
-            ReaderStatus = "Page could not be loaded.";
+        try
+        {
+            var page = await _pagePreviewLoader.LoadPageAsync(book, CurrentPageIndex, cts.Token);
+            if (cts.IsCancellationRequested || loadVersion != _currentPageLoadVersion)
+            {
+                return;
+            }
+
+            CurrentPageImage = page;
+
+            if (CurrentPageImage is null)
+                ReaderStatus = "Page could not be loaded.";
+            else
+                _ = PrefetchAdjacentPagesAsync(book, CurrentPageIndex);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        finally
+        {
+            if (!cts.IsCancellationRequested && loadVersion == _currentPageLoadVersion)
+            {
+                IsPageLoading = false;
+            }
+        }
 
         RaisePropertyChanged(nameof(CurrentPageLabel));
         RefreshAllNavCanExecute();
+    }
+
+    private async Task PrefetchAdjacentPagesAsync(ComicBook book, int pageIndex)
+    {
+        try
+        {
+            var pageCount = book.PageCount;
+            var pageIndexes = new[] { pageIndex + 1, pageIndex - 1 };
+
+            foreach (var index in pageIndexes)
+            {
+                if (index < 0 || index >= pageCount)
+                {
+                    continue;
+                }
+
+                await _pagePreviewLoader.LoadPageAsync(book, index, CancellationToken.None);
+            }
+        }
+        catch (OperationCanceledException) { }
     }
 
     private async Task LoadVerticalPagesAsync(ComicBook comicBook)
@@ -1024,10 +1072,12 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     private async Task SaveProgressAsync()
     {
-        if (SelectedBook is null) return;
-        var progress = new ReadingProgress(SelectedBook.ComicBook.Id, CurrentPageIndex, DateTimeOffset.UtcNow);
-        await _progressRepository.SaveAsync(progress);
-        SelectedBook.SetProgress(progress);
+        var selectedBook = SelectedBook;
+        if (selectedBook is null) return;
+
+        var progress = new ReadingProgress(selectedBook.ComicBook.Id, CurrentPageIndex, DateTimeOffset.UtcNow);
+        await Task.Run(() => _progressRepository.SaveAsync(progress));
+        selectedBook.SetProgress(progress);
         _progressMap[progress.ComicBookId] = progress;
     }
 

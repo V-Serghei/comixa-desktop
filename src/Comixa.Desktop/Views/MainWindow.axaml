@@ -12,20 +12,6 @@
         MinHeight="640"
         Background="{DynamicResource ComixaBackgroundBrush}">
 
-  <Window.KeyBindings>
-    <KeyBinding Gesture="Left" Command="{Binding PageBackwardCommand}" />
-    <KeyBinding Gesture="Right" Command="{Binding PageForwardCommand}" />
-    <KeyBinding Gesture="Up" Command="{Binding PageBackwardCommand}" />
-    <KeyBinding Gesture="Down" Command="{Binding PageForwardCommand}" />
-    <KeyBinding Gesture="PageUp" Command="{Binding PageBackwardCommand}" />
-    <KeyBinding Gesture="PageDown" Command="{Binding PageForwardCommand}" />
-    <KeyBinding Gesture="Home" Command="{Binding GoToFirstPageCommand}" />
-    <KeyBinding Gesture="End" Command="{Binding GoToLastPageCommand}" />
-    <KeyBinding Gesture="F" Command="{Binding ToggleFitModeCommand}" />
-    <KeyBinding Gesture="B" Command="{Binding ToggleBookmarkCommand}" />
-    <KeyBinding Gesture="S" Command="{Binding ToggleSettingsPanelCommand}" />
-  </Window.KeyBindings>
-
   <Grid RowDefinitions="52,*">
     <Border Background="{DynamicResource ComixaSurfaceBrush}"
             BorderBrush="{DynamicResource ComixaOutlineBrush}"
