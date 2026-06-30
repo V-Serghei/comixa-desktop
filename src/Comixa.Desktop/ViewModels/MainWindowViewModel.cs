@@ -87,6 +87,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private CancellationTokenSource? _currentPageCts;
     private CancellationTokenSource? _bookPreloadCts;
     private CancellationTokenSource? _coverLoadCts;
+    private Guid? _preloadingBookId;
+    private int _preloadAnchorPageIndex = -1;
     private int _currentPageLoadVersion;
     private SingleLibraryItemViewModel? _openSingleItem;
 
@@ -1372,6 +1374,14 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     private void StartBookPreload(ComicBook book, int pageIndex)
     {
+        if (_bookPreloadCts is not null &&
+            _preloadingBookId == book.Id &&
+            pageIndex >= _preloadAnchorPageIndex &&
+            pageIndex <= _preloadAnchorPageIndex + 12)
+        {
+            return;
+        }
+
         CancelBookPreload();
         if (_pagePreviewLoader is not IPageCacheMaintenance maintenance)
         {
@@ -1379,6 +1389,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         _bookPreloadCts = new CancellationTokenSource();
+        _preloadingBookId = book.Id;
+        _preloadAnchorPageIndex = pageIndex;
         var cts = _bookPreloadCts;
         var token = cts.Token;
 
@@ -1394,6 +1406,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
                 if (ReferenceEquals(_bookPreloadCts, cts))
                 {
                     _bookPreloadCts = null;
+                    _preloadingBookId = null;
+                    _preloadAnchorPageIndex = -1;
                 }
 
                 cts.Dispose();
@@ -1413,6 +1427,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     {
         _bookPreloadCts?.Cancel();
         _bookPreloadCts = null;
+        _preloadingBookId = null;
+        _preloadAnchorPageIndex = -1;
     }
 
     private async Task LoadVerticalPagesAsync(ComicBook comicBook)
@@ -1456,7 +1472,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _coverLoadCts?.Cancel();
         _coverLoadCts = new CancellationTokenSource();
         var cts = _coverLoadCts;
-        var concurrency = Math.Clamp(Environment.ProcessorCount / 2, 2, 6);
+        var concurrency = Math.Clamp(Environment.ProcessorCount / 3, 2, 4);
         using var semaphore = new SemaphoreSlim(concurrency);
         var books = _allBooks.Where(book => !book.HasCoverImage).ToArray();
         var tasks = books.Select(async book =>
@@ -1521,8 +1537,12 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
         foreach (var book in _allBooks)
         {
-            book.CoverImage?.Dispose();
             book.SetCoverImage(null);
+        }
+
+        if (_coverImageCache is IDisposable disposableCoverCache)
+        {
+            disposableCoverCache.Dispose();
         }
 
         if (_pagePreviewLoader is IDisposable disposableLoader)

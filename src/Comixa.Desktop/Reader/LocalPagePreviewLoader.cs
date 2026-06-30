@@ -9,9 +9,12 @@ namespace Comixa.Desktop.Reader;
 
 public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IPageCacheMaintenance, IDisposable
 {
-    private const int MaxCachedPages = 192;
-    private const long MaxCachedPageBytes = 384L * 1024L * 1024L;
-    private static readonly TimeSpan PageIdleLifetime = TimeSpan.FromMinutes(5);
+    private const int MaxCachedPages = 256;
+    private const int HotPreloadForwardPages = 16;
+    private const int HotPreloadBackwardPages = 4;
+    private const int HotPreloadParallelism = 4;
+    private const long MaxCachedPageBytes = 768L * 1024L * 1024L;
+    private static readonly TimeSpan PageIdleLifetime = TimeSpan.FromMinutes(7);
     private static readonly TimeSpan CleanupInterval = TimeSpan.FromSeconds(45);
 
     private static readonly ConcurrentDictionary<string, string[]> ArchiveImageEntryNames = new(StringComparer.OrdinalIgnoreCase);
@@ -84,6 +87,9 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IPageCacheMaint
         await _preloadGate.WaitAsync(cancellationToken);
         try
         {
+            var hotPages = BuildHotPreloadOrder(comicBook.PageCount, startPageIndex).ToArray();
+            await PreloadPageBatchAsync(comicBook, hotPages, cancellationToken);
+
             if (comicBook.Format is ComicFormat.Cbz or ComicFormat.Zip)
             {
                 await PreloadArchivePagesAsync(comicBook, startPageIndex, cancellationToken);
@@ -111,7 +117,7 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IPageCacheMaint
         }
 
         var start = Math.Max(0, pageIndex - 2);
-        var end = Math.Min(comicBook.PageCount - 1, pageIndex + Math.Max(1, pageCount) + 6);
+        var end = Math.Min(comicBook.PageCount - 1, pageIndex + Math.Max(1, pageCount) + HotPreloadForwardPages);
         var cacheKeyPrefix = GetPageCacheKeyPrefix(comicBook);
         var keys = Enumerable
             .Range(start, end - start + 1)
@@ -188,6 +194,30 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IPageCacheMaint
                 _decodeGate.Release();
             }
         }, cancellationToken);
+    }
+
+    private static async Task PreloadPageBatchAsync(
+        IPagePreviewLoader loader,
+        ComicBook comicBook,
+        IReadOnlyCollection<int> pageIndexes,
+        CancellationToken cancellationToken)
+    {
+        await Parallel.ForEachAsync(
+            pageIndexes,
+            new ParallelOptions
+            {
+                MaxDegreeOfParallelism = HotPreloadParallelism,
+                CancellationToken = cancellationToken
+            },
+            async (pageIndex, token) => await loader.LoadPageAsync(comicBook, pageIndex, token));
+    }
+
+    private Task PreloadPageBatchAsync(
+        ComicBook comicBook,
+        IReadOnlyCollection<int> pageIndexes,
+        CancellationToken cancellationToken)
+    {
+        return PreloadPageBatchAsync(this, comicBook, pageIndexes, cancellationToken);
     }
 
     private async Task PreloadArchivePagesAsync(ComicBook comicBook, int startPageIndex, CancellationToken cancellationToken)
@@ -326,6 +356,30 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IPageCacheMaint
         for (var index = start - 1; index >= 0; index--)
         {
             yield return index;
+        }
+    }
+
+    private static IEnumerable<int> BuildHotPreloadOrder(int pageCount, int startPageIndex)
+    {
+        var start = Math.Clamp(startPageIndex, 0, pageCount - 1);
+        yield return start;
+
+        for (var offset = 1; offset <= HotPreloadForwardPages; offset++)
+        {
+            var pageIndex = start + offset;
+            if (pageIndex < pageCount)
+            {
+                yield return pageIndex;
+            }
+        }
+
+        for (var offset = 1; offset <= HotPreloadBackwardPages; offset++)
+        {
+            var pageIndex = start - offset;
+            if (pageIndex >= 0)
+            {
+                yield return pageIndex;
+            }
         }
     }
 
