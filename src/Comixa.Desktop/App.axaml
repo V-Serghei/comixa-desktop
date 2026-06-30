@@ -33,5 +33,208 @@
   </Application.Resources>
   <Application.Styles>
     <FluentTheme />
+
+    <Style Selector="Button">
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.12" />
+          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
+        </Transitions>
+      </Setter>
+    </Style>
+
+    <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.12" />
+          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
+        </Transitions>
+      </Setter>
+    </Style>
+
+    <Style Selector="Button:pointerover">
+      <Setter Property="Background" Value="#24303C" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="#536679" />
+    </Style>
+
+    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#24303C" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="#536679" />
+    </Style>
+
+    <Style Selector="Button:pressed">
+      <Setter Property="Background" Value="#304256" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#304256" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.chromeButton">
+      <Setter Property="Background" Value="{DynamicResource ComixaSurfaceVariantBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ComixaOnSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaOutlineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="12,7" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.14" />
+          <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
+          <BrushTransition Property="Foreground" Duration="0:0:0.14" />
+        </Transitions>
+      </Setter>
+    </Style>
+
+    <Style Selector="Button.chromeButton:pointerover">
+      <Setter Property="Background" Value="#263443" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.chromeButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#263443" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.chromeButton:pressed">
+      <Setter Property="Background" Value="#304256" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.chromeButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#304256" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.sidebarButton">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource ComixaOnSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.12" />
+          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
+        </Transitions>
+      </Setter>
+    </Style>
+
+    <Style Selector="Button.sidebarButton:pointerover">
+      <Setter Property="Background" Value="#1D2732" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="#2D3B49" />
+    </Style>
+
+    <Style Selector="Button.sidebarButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#1D2732" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="#2D3B49" />
+    </Style>
+
+    <Style Selector="Button.sidebarButton:pressed">
+      <Setter Property="Background" Value="#263443" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.sidebarButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#263443" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.readerButton">
+      <Setter Property="Background" Value="#24303C" />
+      <Setter Property="Foreground" Value="#F5F8FC" />
+      <Setter Property="BorderBrush" Value="#68788A" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="12,7" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.12" />
+          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
+        </Transitions>
+      </Setter>
+    </Style>
+
+    <Style Selector="Button.readerButton:pointerover">
+      <Setter Property="Background" Value="#33465A" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.readerButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#33465A" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.readerButton:pressed">
+      <Setter Property="Background" Value="#40566D" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.readerButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#40566D" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.readerPrimaryButton">
+      <Setter Property="Background" Value="{DynamicResource ComixaPrimaryBrush}" />
+      <Setter Property="Foreground" Value="#001B12" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="12,7" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.12" />
+          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
+        </Transitions>
+      </Setter>
+    </Style>
+
+    <Style Selector="Button.readerPrimaryButton:pointerover">
+      <Setter Property="Background" Value="#38E99C" />
+      <Setter Property="Foreground" Value="#001B12" />
+      <Setter Property="BorderBrush" Value="#9AF7CE" />
+    </Style>
+
+    <Style Selector="Button.readerPrimaryButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#38E99C" />
+      <Setter Property="Foreground" Value="#001B12" />
+      <Setter Property="BorderBrush" Value="#9AF7CE" />
+    </Style>
+
+    <Style Selector="Button.readerPrimaryButton:pressed">
+      <Setter Property="Background" Value="#00B96B" />
+      <Setter Property="Foreground" Value="#001B12" />
+      <Setter Property="BorderBrush" Value="#5EF0B5" />
+    </Style>
+
+    <Style Selector="Button.readerPrimaryButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#00B96B" />
+      <Setter Property="Foreground" Value="#001B12" />
+      <Setter Property="BorderBrush" Value="#5EF0B5" />
+    </Style>
   </Application.Styles>
 </Application>
