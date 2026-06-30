@@ -166,12 +166,22 @@
                  FontWeight="SemiBold"
                  Foreground="{DynamicResource ComixaOnSurfaceBrush}"
                  VerticalAlignment="Center" />
-      <TextBlock Grid.Column="1"
-                 Text="{Binding StatusMessage}"
-                 FontSize="10"
-                 Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
-                 VerticalAlignment="Center"
-                 HorizontalAlignment="Right" />
+      <StackPanel Grid.Column="1"
+                  Orientation="Horizontal"
+                  Spacing="8"
+                  VerticalAlignment="Center">
+        <TextBlock Text="{Binding StatusMessage}"
+                   FontSize="10"
+                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                   VerticalAlignment="Center"
+                   HorizontalAlignment="Right"
+                   MaxWidth="120"
+                   TextTrimming="CharacterEllipsis" />
+        <Button Content="+ Folder"
+                Command="{Binding ScanFolderCommand}"
+                Background="{DynamicResource ComixaPrimaryBrush}"
+                Foreground="#001B12" />
+      </StackPanel>
     </Grid>
 
     <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,8">

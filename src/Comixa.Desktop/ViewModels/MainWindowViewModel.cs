@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Threading;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
@@ -59,6 +60,9 @@ public sealed class MainWindowViewModel : ViewModelBase
     private ReaderPageAnimation _readerPageAnimation = ReaderPageAnimation.Fade;
     private bool _isTwoPageMode;
     private bool _isReaderFullscreen;
+    private bool _openComicsAtLastPosition = true;
+    private bool _openComicsInFullscreen;
+    private bool _isReaderPreviewPaneEnabled = true;
 
     // Shelf creation state
     private bool _isCreatingShelf;
@@ -145,10 +149,14 @@ public sealed class MainWindowViewModel : ViewModelBase
         ToggleSettingsPanelCommand = new RelayCommand(ToggleSettingsPanel);
         ToggleFitModeCommand = new RelayCommand(ToggleFitMode);
         ToggleReaderFullscreenCommand = new RelayCommand(ToggleReaderFullscreen);
+        ToggleOpenComicsAtLastPositionCommand = new RelayCommand(ToggleOpenComicsAtLastPosition);
+        ToggleOpenComicsInFullscreenCommand = new RelayCommand(ToggleOpenComicsInFullscreen);
+        ToggleReaderPreviewPaneCommand = new RelayCommand(ToggleReaderPreviewPane);
         ToggleTwoPageModeCommand = new RelayCommand(ToggleTwoPageMode);
         ToggleEdgePageTurnsCommand = new RelayCommand(ToggleEdgePageTurns);
         ToggleDragPageTurnsCommand = new RelayCommand(ToggleDragPageTurns);
         TogglePageTurnInversionCommand = new RelayCommand(TogglePageTurnInversion);
+        ResetReaderDefaultsCommand = new RelayCommand(ResetReaderDefaults);
         SetReaderWheelActionCommand = new RelayCommand<string>(SetReaderWheelAction);
         SetReaderColorToneCommand = new RelayCommand<string>(SetReaderColorTone);
         SetReaderAnimationCommand = new RelayCommand<string>(SetReaderAnimation);
@@ -201,10 +209,14 @@ public sealed class MainWindowViewModel : ViewModelBase
     public RelayCommand GoToLastPageCommand { get; }
     public RelayCommand ToggleFitModeCommand { get; }
     public RelayCommand ToggleReaderFullscreenCommand { get; }
+    public RelayCommand ToggleOpenComicsAtLastPositionCommand { get; }
+    public RelayCommand ToggleOpenComicsInFullscreenCommand { get; }
+    public RelayCommand ToggleReaderPreviewPaneCommand { get; }
     public RelayCommand ToggleTwoPageModeCommand { get; }
     public RelayCommand ToggleEdgePageTurnsCommand { get; }
     public RelayCommand ToggleDragPageTurnsCommand { get; }
     public RelayCommand TogglePageTurnInversionCommand { get; }
+    public RelayCommand ResetReaderDefaultsCommand { get; }
     public RelayCommand<string> SetReaderWheelActionCommand { get; }
     public RelayCommand<string> SetReaderColorToneCommand { get; }
     public RelayCommand<string> SetReaderAnimationCommand { get; }
@@ -305,6 +317,15 @@ public sealed class MainWindowViewModel : ViewModelBase
     public bool IsVerticalMode => _readingDirection == ReadingDirection.TopToBottom;
     public bool IsReaderFullscreen => _isReaderFullscreen;
     public string ReaderFullscreenLabel => _isReaderFullscreen ? "Exit Fullscreen" : "Fullscreen";
+    public bool OpenComicsAtLastPosition => _openComicsAtLastPosition;
+    public bool OpenComicsInFullscreen => _openComicsInFullscreen;
+    public bool IsReaderPreviewPaneEnabled => _isReaderPreviewPaneEnabled;
+    public GridLength LibraryPaneWidth =>
+        _isReaderPreviewPaneEnabled ? new GridLength(340) : new GridLength(1, GridUnitType.Star);
+    public GridLength ReaderPreviewSplitterWidth =>
+        _isReaderPreviewPaneEnabled ? new GridLength(4) : new GridLength(0);
+    public GridLength ReaderPreviewPaneWidth =>
+        _isReaderPreviewPaneEnabled ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
     public bool IsTwoPageMode => _isTwoPageMode;
     public bool IsSinglePageMode => !_isTwoPageMode;
     public string PageLayoutLabel => _isTwoPageMode ? "2 Pages" : "1 Page";
@@ -358,7 +379,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         {
             if (_selectedBook == value) return;
             _selectedBook = value;
-            CurrentPageIndex = 0;
+            CurrentPageIndex = GetInitialPageIndex(value);
             RaisePropertyChanged();
             RaisePropertyChanged(nameof(HasSelectedBook));
             RaisePropertyChanged(nameof(Title));
@@ -469,6 +490,19 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     public string BookmarkIcon => IsCurrentPageBookmarked ? "Bookmarked" : "Bookmark";
 
+    private int GetInitialPageIndex(ComicBookListItemViewModel? book)
+    {
+        if (book is null || !_openComicsAtLastPosition)
+        {
+            return 0;
+        }
+
+        var pageCount = Math.Max(0, book.ComicBook.PageCount - 1);
+        return _progressMap.TryGetValue(book.ComicBook.Id, out var progress)
+            ? Math.Clamp(progress.PageNumber, 0, pageCount)
+            : 0;
+    }
+
     // --- Initialization ---
 
     private async Task InitializeAsync()
@@ -483,10 +517,14 @@ public sealed class MainWindowViewModel : ViewModelBase
         _readerColorTone = prefs.ReaderColorTone;
         _readerPageAnimation = prefs.ReaderPageAnimation;
         _isTwoPageMode = prefs.IsTwoPageMode;
+        _openComicsAtLastPosition = prefs.OpenComicsAtLastPosition;
+        _openComicsInFullscreen = prefs.OpenComicsInFullscreen;
+        _isReaderPreviewPaneEnabled = prefs.IsReaderPreviewPaneEnabled;
         ApplyTheme();
         RaisePropertyChanged(nameof(IsDarkTheme));
         RaisePropertyChanged(nameof(IsLightTheme));
         NotifyAllDirectionProps();
+        NotifyGlobalSettingsProps();
         NotifyReaderSettingsProps();
 
         await LoadShelvesAsync();
@@ -751,6 +789,11 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         SelectedBook = book;
 
+        if (_openComicsInFullscreen || !_isReaderPreviewPaneEnabled)
+        {
+            SetReaderFullscreen(true);
+        }
+
         // Mark as "started" (page 0) if no prior progress
         if (!book.HasProgress)
             _ = SaveStartedProgressAsync(book);
@@ -920,9 +963,53 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     private void ToggleReaderFullscreen()
     {
-        _isReaderFullscreen = !_isReaderFullscreen;
+        SetReaderFullscreen(!_isReaderFullscreen);
+    }
+
+    private void SetReaderFullscreen(bool isFullscreen)
+    {
+        if (_isReaderFullscreen == isFullscreen)
+        {
+            return;
+        }
+
+        _isReaderFullscreen = isFullscreen;
         RaisePropertyChanged(nameof(IsReaderFullscreen));
         RaisePropertyChanged(nameof(ReaderFullscreenLabel));
+        NotifyGlobalSettingsProps();
+    }
+
+    private void ToggleOpenComicsAtLastPosition()
+    {
+        _openComicsAtLastPosition = !_openComicsAtLastPosition;
+        NotifyGlobalSettingsProps();
+        _ = SavePreferencesAsync();
+    }
+
+    private void ToggleOpenComicsInFullscreen()
+    {
+        _openComicsInFullscreen = !_openComicsInFullscreen;
+        NotifyGlobalSettingsProps();
+
+        if (_openComicsInFullscreen && SelectedBook is not null)
+        {
+            SetReaderFullscreen(true);
+        }
+
+        _ = SavePreferencesAsync();
+    }
+
+    private void ToggleReaderPreviewPane()
+    {
+        _isReaderPreviewPaneEnabled = !_isReaderPreviewPaneEnabled;
+        NotifyGlobalSettingsProps();
+
+        if (!_isReaderPreviewPaneEnabled && SelectedBook is not null && !_isReaderFullscreen)
+        {
+            SetReaderFullscreen(true);
+        }
+
+        _ = SavePreferencesAsync();
     }
 
     private void ToggleTwoPageMode()
@@ -957,6 +1044,28 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         _isPageTurnInverted = !_isPageTurnInverted;
         RaisePropertyChanged(nameof(IsPageTurnInverted));
+        _ = SavePreferencesAsync();
+    }
+
+    private void ResetReaderDefaults()
+    {
+        var defaults = UserPreferences.Default;
+        _readingDirection = defaults.ReadingDirection;
+        _readerWheelAction = defaults.ReaderWheelAction;
+        _isEdgePageTurnEnabled = defaults.IsEdgePageTurnEnabled;
+        _isDragPageTurnEnabled = defaults.IsDragPageTurnEnabled;
+        _isPageTurnInverted = defaults.IsPageTurnInverted;
+        _readerColorTone = defaults.ReaderColorTone;
+        _readerPageAnimation = defaults.ReaderPageAnimation;
+        _isTwoPageMode = defaults.IsTwoPageMode;
+        NotifyAllDirectionProps();
+        NotifyReaderSettingsProps();
+
+        if (SelectedBook is not null && !IsVerticalMode)
+        {
+            _ = LoadCurrentPageAsync();
+        }
+
         _ = SavePreferencesAsync();
     }
 
@@ -1089,7 +1198,10 @@ public sealed class MainWindowViewModel : ViewModelBase
             _isPageTurnInverted,
             _readerColorTone,
             _readerPageAnimation,
-            _isTwoPageMode));
+            _isTwoPageMode,
+            _openComicsAtLastPosition,
+            _openComicsInFullscreen,
+            _isReaderPreviewPaneEnabled));
     }
 
     // --- Bookmarks ---
@@ -1405,5 +1517,15 @@ public sealed class MainWindowViewModel : ViewModelBase
         RaisePropertyChanged(nameof(IsSinglePageVisible));
         RaisePropertyChanged(nameof(IsTwoPageVisible));
         RaisePropertyChanged(nameof(CurrentPageLabel));
+    }
+
+    private void NotifyGlobalSettingsProps()
+    {
+        RaisePropertyChanged(nameof(OpenComicsAtLastPosition));
+        RaisePropertyChanged(nameof(OpenComicsInFullscreen));
+        RaisePropertyChanged(nameof(IsReaderPreviewPaneEnabled));
+        RaisePropertyChanged(nameof(LibraryPaneWidth));
+        RaisePropertyChanged(nameof(ReaderPreviewSplitterWidth));
+        RaisePropertyChanged(nameof(ReaderPreviewPaneWidth));
     }
 }

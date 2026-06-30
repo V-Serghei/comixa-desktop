@@ -39,7 +39,10 @@ public sealed class JsonUserPreferencesStore : IUserPreferencesStore
                 dto.IsPageTurnInverted ?? UserPreferences.Default.IsPageTurnInverted,
                 Enum.TryParse<ReaderColorTone>(dto.ReaderColorTone, out var colorTone) ? colorTone : UserPreferences.Default.ReaderColorTone,
                 Enum.TryParse<ReaderPageAnimation>(dto.ReaderPageAnimation, out var animation) ? animation : UserPreferences.Default.ReaderPageAnimation,
-                dto.IsTwoPageMode ?? UserPreferences.Default.IsTwoPageMode);
+                dto.IsTwoPageMode ?? UserPreferences.Default.IsTwoPageMode,
+                dto.OpenComicsAtLastPosition ?? UserPreferences.Default.OpenComicsAtLastPosition,
+                dto.OpenComicsInFullscreen ?? UserPreferences.Default.OpenComicsInFullscreen,
+                dto.IsReaderPreviewPaneEnabled ?? UserPreferences.Default.IsReaderPreviewPaneEnabled);
         }
         catch
         {
@@ -62,7 +65,10 @@ public sealed class JsonUserPreferencesStore : IUserPreferencesStore
             preferences.IsPageTurnInverted,
             preferences.ReaderColorTone.ToString(),
             preferences.ReaderPageAnimation.ToString(),
-            preferences.IsTwoPageMode);
+            preferences.IsTwoPageMode,
+            preferences.OpenComicsAtLastPosition,
+            preferences.OpenComicsInFullscreen,
+            preferences.IsReaderPreviewPaneEnabled);
 
         await using var stream = File.Create(_path);
         await JsonSerializer.SerializeAsync(stream, dto, SerializerOptions, cancellationToken);
@@ -77,5 +83,8 @@ public sealed class JsonUserPreferencesStore : IUserPreferencesStore
         bool? IsPageTurnInverted,
         string? ReaderColorTone,
         string? ReaderPageAnimation,
-        bool? IsTwoPageMode);
+        bool? IsTwoPageMode,
+        bool? OpenComicsAtLastPosition,
+        bool? OpenComicsInFullscreen,
+        bool? IsReaderPreviewPaneEnabled);
 }

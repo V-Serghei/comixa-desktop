@@ -11,7 +11,10 @@ public sealed record UserPreferences(
     bool IsPageTurnInverted,
     ReaderColorTone ReaderColorTone,
     ReaderPageAnimation ReaderPageAnimation,
-    bool IsTwoPageMode)
+    bool IsTwoPageMode,
+    bool OpenComicsAtLastPosition,
+    bool OpenComicsInFullscreen,
+    bool IsReaderPreviewPaneEnabled)
 {
     public static UserPreferences Default { get; } = new(
         IsDarkTheme: true,
@@ -22,5 +25,8 @@ public sealed record UserPreferences(
         IsPageTurnInverted: false,
         ReaderColorTone: ReaderColorTone.Original,
         ReaderPageAnimation: ReaderPageAnimation.Fade,
-        IsTwoPageMode: false);
+        IsTwoPageMode: false,
+        OpenComicsAtLastPosition: true,
+        OpenComicsInFullscreen: false,
+        IsReaderPreviewPaneEnabled: true);
 }

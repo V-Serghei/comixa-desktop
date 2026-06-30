@@ -20,6 +20,32 @@
                      Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
 
           <StackPanel Spacing="10">
+            <TextBlock Text="GLOBAL SETTINGS"
+                       FontSize="10"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.2"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <WrapPanel>
+              <ToggleButton Content="Continue where left off"
+                            Margin="0,0,6,6"
+                            IsChecked="{Binding OpenComicsAtLastPosition, Mode=OneWay}"
+                            Command="{Binding ToggleOpenComicsAtLastPositionCommand}" />
+              <ToggleButton Content="Open fullscreen"
+                            Margin="0,0,6,6"
+                            IsChecked="{Binding OpenComicsInFullscreen, Mode=OneWay}"
+                            Command="{Binding ToggleOpenComicsInFullscreenCommand}" />
+              <ToggleButton Content="Right preview pane"
+                            Margin="0,0,6,6"
+                            IsChecked="{Binding IsReaderPreviewPaneEnabled, Mode=OneWay}"
+                            Command="{Binding ToggleReaderPreviewPaneCommand}" />
+              <ToggleButton Content="Dark theme"
+                            Margin="0,0,6,6"
+                            IsChecked="{Binding IsDarkTheme, Mode=OneWay}"
+                            Command="{Binding ToggleThemeCommand}" />
+            </WrapPanel>
+          </StackPanel>
+
+          <StackPanel Spacing="10">
             <TextBlock Text="READING DIRECTION"
                        FontSize="10"
                        FontWeight="SemiBold"
@@ -67,6 +93,9 @@
                             Margin="0,0,6,6"
                             IsChecked="{Binding IsTwoPageMode, Mode=OneWay}"
                             Command="{Binding ToggleTwoPageModeCommand}" />
+              <Button Content="Reset reader defaults"
+                      Margin="0,0,6,6"
+                      Command="{Binding ResetReaderDefaultsCommand}" />
             </WrapPanel>
           </StackPanel>
 
