@@ -364,13 +364,25 @@
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
             <Button Content="Previous"
                     Command="{Binding PreviousPageCommand}"
+                    Background="#26313D"
+                    Foreground="White"
+                    BorderBrush="#667484"
+                    BorderThickness="1"
                     ToolTip.Tip="Previous page" />
             <Button Content="Next"
                     Command="{Binding NextPageCommand}"
+                    Background="#26313D"
+                    Foreground="White"
+                    BorderBrush="#667484"
+                    BorderThickness="1"
                     ToolTip.Tip="Next page" />
             <Button Content="{Binding NextSeriesBookActionLabel}"
                     Command="{Binding OpenNextSeriesBookCommand}"
                     IsVisible="{Binding HasNextSeriesBookPrompt}"
+                    Background="{DynamicResource ComixaPrimaryBrush}"
+                    Foreground="#001B12"
+                    BorderBrush="{DynamicResource ComixaPrimaryBrush}"
+                    BorderThickness="1"
                     ToolTip.Tip="Open the next part in this series" />
           </StackPanel>
 
@@ -390,18 +402,34 @@
 
             <Button Content="{Binding BookmarkIcon}"
                     Command="{Binding ToggleBookmarkCommand}"
+                    Background="#26313D"
+                    Foreground="White"
+                    BorderBrush="#667484"
+                    BorderThickness="1"
                     ToolTip.Tip="Toggle bookmark (B)" />
 
             <Button Content="{Binding FitModeLabel}"
                     Command="{Binding ToggleFitModeCommand}"
+                    Background="#26313D"
+                    Foreground="White"
+                    BorderBrush="#667484"
+                    BorderThickness="1"
                     ToolTip.Tip="Fit Page / Fit Width (F)" />
 
             <Button Content="{Binding PageLayoutLabel}"
                     Command="{Binding ToggleTwoPageModeCommand}"
+                    Background="#26313D"
+                    Foreground="White"
+                    BorderBrush="#667484"
+                    BorderThickness="1"
                     ToolTip.Tip="Toggle one/two page layout" />
 
             <Button Content="{Binding ReaderFullscreenLabel}"
                     Command="{Binding ToggleReaderFullscreenCommand}"
+                    Background="#26313D"
+                    Foreground="White"
+                    BorderBrush="#667484"
+                    BorderThickness="1"
                     ToolTip.Tip="Fullscreen reader (F11)" />
           </StackPanel>
         </Grid>

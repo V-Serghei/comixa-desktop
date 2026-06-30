@@ -35,12 +35,14 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _isSeriesView;
     private Guid? _activeShelfId;
     private string _activeShelfName = "";
+    private string? _activeFolderPath;
 
     // Library filter state
     private string _searchQuery = "";
     private string _normalizedSearchQuery = "";
     private SortOrder _sortOrder = SortOrder.TitleAsc;
     private bool _showUnreadOnly;
+    private LibraryStatusFilter _statusFilter = LibraryStatusFilter.All;
     private ComicFormat? _formatFilter;
 
     // Series detail state
@@ -125,6 +127,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         // Navigation commands
         NavigateToAllBooksCommand = new RelayCommand(NavigateToAllBooks);
         NavigateToSeriesCommand = new RelayCommand(NavigateToSeries);
+        NavigateToStartedCommand = new RelayCommand(() => NavigateToStatusFilter(LibraryStatusFilter.Started));
+        NavigateToReadCommand = new RelayCommand(() => NavigateToStatusFilter(LibraryStatusFilter.Read));
+        NavigateToUnreadCommand = new RelayCommand(() => NavigateToStatusFilter(LibraryStatusFilter.Unread));
 
         // UI Prev/Next (direction-aware for RTL)
         PreviousPageCommand = new RelayCommand(
@@ -201,10 +206,14 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public ObservableCollection<LibraryItemViewModel> DisplayedItems { get; } = [];
     public ObservableCollection<Bitmap?> VerticalPages { get; } = [];
     public ObservableCollection<ShelfViewModel> Shelves { get; } = [];
+    public ObservableCollection<LibraryFolderViewModel> LibraryFolders { get; } = [];
 
     // Commands - navigation
     public RelayCommand NavigateToAllBooksCommand { get; }
     public RelayCommand NavigateToSeriesCommand { get; }
+    public RelayCommand NavigateToStartedCommand { get; }
+    public RelayCommand NavigateToReadCommand { get; }
+    public RelayCommand NavigateToUnreadCommand { get; }
 
     // Commands - reader
     public AsyncRelayCommand ScanFolderCommand { get; }
@@ -256,12 +265,31 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         : $"{SelectedBook.Title} - Comixa";
 
     // Navigation state
-    public bool IsViewAllBooks => _activeShelfId is null && !_isSeriesView;
-    public bool IsViewSeries => _activeShelfId is null && _isSeriesView;
+    public bool IsViewAllBooks =>
+        _activeShelfId is null &&
+        _activeFolderPath is null &&
+        !_isSeriesView &&
+        _statusFilter == LibraryStatusFilter.All;
+
+    public bool IsViewSeries => _activeShelfId is null && _activeFolderPath is null && _isSeriesView;
+    public bool IsViewStarted => _activeShelfId is null && _activeFolderPath is null && _statusFilter == LibraryStatusFilter.Started;
+    public bool IsViewRead => _activeShelfId is null && _activeFolderPath is null && _statusFilter == LibraryStatusFilter.Read;
+    public bool IsViewUnread => _activeShelfId is null && _activeFolderPath is null && _statusFilter == LibraryStatusFilter.Unread;
+    public bool HasLibraryFolders => LibraryFolders.Count > 0;
 
     public string LibraryViewTitle => _activeShelfId.HasValue
         ? _activeShelfName
-        : _isSeriesView ? "Series" : "All Books";
+        : _activeFolderPath is not null
+            ? $"Folder: {GetFolderDisplayName(_activeFolderPath)}"
+            : _isSeriesView
+                ? "Series"
+                : _statusFilter switch
+                {
+                    LibraryStatusFilter.Started => "Started",
+                    LibraryStatusFilter.Read => "Read",
+                    LibraryStatusFilter.Unread => "Unread",
+                    _ => "All Books"
+                };
 
     // Library filter state
     public string SearchQuery
@@ -280,6 +308,10 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     public bool HasSearchQuery => _normalizedSearchQuery.Length > 0;
     public bool ShowUnreadOnly => _showUnreadOnly;
+    public bool IsStatusAllActive => _statusFilter == LibraryStatusFilter.All;
+    public bool IsStatusStartedActive => _statusFilter == LibraryStatusFilter.Started;
+    public bool IsStatusReadActive => _statusFilter == LibraryStatusFilter.Read;
+    public bool IsStatusUnreadActive => _statusFilter == LibraryStatusFilter.Unread;
     public bool IsCbzFilterActive => _formatFilter == ComicFormat.Cbz;
     public bool IsZipFilterActive => _formatFilter == ComicFormat.Zip;
     public bool IsPdfFilterActive => _formatFilter == ComicFormat.Pdf;
@@ -291,7 +323,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public bool IsInSeriesDetail => _isInSeriesDetail;
     public string CurrentSeriesName => _currentSeriesName;
     public IReadOnlyList<ComicBookListItemViewModel> SeriesBooks => _seriesBooks;
-    public bool IsLibraryEmpty => _allBooks.Count == 0 && !_isLoadingLibrary;
+    public bool IsLibraryEmpty => DisplayedItems.Count == 0 && !_isLoadingLibrary;
 
     // Shelf creation state
     public bool IsCreatingShelf => _isCreatingShelf;
@@ -331,6 +363,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public bool OpenComicsAtLastPosition => _openComicsAtLastPosition;
     public bool OpenComicsInFullscreen => _openComicsInFullscreen;
     public bool IsReaderPreviewPaneEnabled => _isReaderPreviewPaneEnabled;
+    public string ReaderPreviewPaneLabel => _isReaderPreviewPaneEnabled ? "Hide Reader" : "Show Reader";
     public GridLength LibraryPaneWidth =>
         _isReaderPreviewPaneEnabled ? new GridLength(340) : new GridLength(1, GridUnitType.Star);
     public GridLength ReaderPreviewSplitterWidth =>
@@ -568,6 +601,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private async Task LoadSavedFoldersAsync()
     {
         var settings = await _settingsStore.LoadAsync();
+        RebuildFolderVMs(settings.WatchedFolders);
         if (settings.WatchedFolders.Count == 0) return;
         await ScanFoldersAsync(settings.WatchedFolders);
     }
@@ -584,6 +618,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             .ToArray();
 
         await _settingsStore.SaveAsync(new UserLibrarySettings(folders));
+        RebuildFolderVMs(folders);
         await ScanFoldersAsync(folders);
     }
 
@@ -636,6 +671,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _isSeriesView = false;
         _activeShelfId = null;
         _activeShelfName = "";
+        _activeFolderPath = null;
+        _statusFilter = LibraryStatusFilter.All;
         _isInSeriesDetail = false;
         NotifyNavigationProps();
         RefreshDisplayedItems();
@@ -646,7 +683,23 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _isSeriesView = true;
         _activeShelfId = null;
         _activeShelfName = "";
+        _activeFolderPath = null;
+        _statusFilter = LibraryStatusFilter.All;
         _isInSeriesDetail = false;
+        NotifyNavigationProps();
+        RefreshDisplayedItems();
+    }
+
+    private void NavigateToStatusFilter(LibraryStatusFilter filter)
+    {
+        _isSeriesView = false;
+        _activeShelfId = null;
+        _activeShelfName = "";
+        _activeFolderPath = null;
+        _statusFilter = filter;
+        _showUnreadOnly = filter == LibraryStatusFilter.Unread;
+        _isInSeriesDetail = false;
+        RaisePropertyChanged(nameof(ShowUnreadOnly));
         NotifyNavigationProps();
         RefreshDisplayedItems();
     }
@@ -655,8 +708,18 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     {
         foreach (var vm in Shelves)
             vm.IsActive = vm.Id == _activeShelfId;
+        foreach (var vm in LibraryFolders)
+            vm.IsActive = _activeFolderPath is not null && vm.Path.Equals(_activeFolderPath, StringComparison.OrdinalIgnoreCase);
+
         RaisePropertyChanged(nameof(IsViewAllBooks));
         RaisePropertyChanged(nameof(IsViewSeries));
+        RaisePropertyChanged(nameof(IsViewStarted));
+        RaisePropertyChanged(nameof(IsViewRead));
+        RaisePropertyChanged(nameof(IsViewUnread));
+        RaisePropertyChanged(nameof(IsStatusAllActive));
+        RaisePropertyChanged(nameof(IsStatusStartedActive));
+        RaisePropertyChanged(nameof(IsStatusReadActive));
+        RaisePropertyChanged(nameof(IsStatusUnreadActive));
         RaisePropertyChanged(nameof(LibraryViewTitle));
         RaisePropertyChanged(nameof(IsInSeriesDetail));
     }
@@ -668,6 +731,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _isSeriesView = false;
         _activeShelfId = shelfId;
         _activeShelfName = _shelves.FirstOrDefault(s => s.Id == shelfId)?.Name ?? "";
+        _activeFolderPath = null;
+        _statusFilter = LibraryStatusFilter.All;
         _isInSeriesDetail = false;
         NotifyNavigationProps();
         RefreshDisplayedItems();
@@ -734,6 +799,31 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             vm.IsActive = shelf.Id == _activeShelfId;
             Shelves.Add(vm);
         }
+    }
+
+    private void SelectFolder(string folderPath)
+    {
+        _isSeriesView = false;
+        _activeShelfId = null;
+        _activeShelfName = "";
+        _activeFolderPath = folderPath;
+        _statusFilter = LibraryStatusFilter.All;
+        _isInSeriesDetail = false;
+        NotifyNavigationProps();
+        RefreshDisplayedItems();
+    }
+
+    private void RebuildFolderVMs(IReadOnlyList<string> folderPaths)
+    {
+        LibraryFolders.Clear();
+        foreach (var folderPath in folderPaths.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var vm = new LibraryFolderViewModel(folderPath, SelectFolder);
+            vm.IsActive = _activeFolderPath is not null && folderPath.Equals(_activeFolderPath, StringComparison.OrdinalIgnoreCase);
+            LibraryFolders.Add(vm);
+        }
+
+        RaisePropertyChanged(nameof(HasLibraryFolders));
     }
 
     private IReadOnlyList<ShelfMenuItemViewModel> BuildShelfMenuItems(Guid bookId)
@@ -808,7 +898,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
         SelectedBook = book;
 
-        if (_openComicsInFullscreen || !_isReaderPreviewPaneEnabled)
+        if (_openComicsInFullscreen)
         {
             SetReaderFullscreen(true);
         }
@@ -844,7 +934,14 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private void ToggleUnreadOnly()
     {
         _showUnreadOnly = !_showUnreadOnly;
+        _statusFilter = _showUnreadOnly ? LibraryStatusFilter.Unread : LibraryStatusFilter.All;
+        _activeShelfId = null;
+        _activeShelfName = "";
+        _activeFolderPath = null;
+        _isSeriesView = false;
+        _isInSeriesDetail = false;
         RaisePropertyChanged(nameof(ShowUnreadOnly));
+        NotifyNavigationProps();
         RefreshDisplayedItems();
     }
 
@@ -867,11 +964,22 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         if (_showUnreadOnly)
             filtered = filtered.Where(b => !b.HasProgress);
 
+        filtered = _statusFilter switch
+        {
+            LibraryStatusFilter.Started => filtered.Where(b => b.IsStarted),
+            LibraryStatusFilter.Read => filtered.Where(b => b.IsRead),
+            LibraryStatusFilter.Unread => filtered.Where(b => b.IsUnread),
+            _ => filtered
+        };
+
         if (_formatFilter.HasValue)
             filtered = filtered.Where(b => b.ComicBook.Format == _formatFilter.Value);
 
         if (_activeShelfId.HasValue && _shelfEntriesMap.TryGetValue(_activeShelfId.Value, out var shelfBookIds))
             filtered = filtered.Where(b => shelfBookIds.Contains(b.ComicBook.Id));
+
+        if (_activeFolderPath is not null)
+            filtered = filtered.Where(b => IsInsideFolder(b.FilePath, _activeFolderPath));
 
         var grouped = BuildLibraryItems(filtered.ToList());
 
@@ -960,6 +1068,20 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             .ThenBy(book => book.FilePath, StringComparer.OrdinalIgnoreCase);
     }
 
+    private static bool IsInsideFolder(string filePath, string folderPath)
+    {
+        var relativePath = Path.GetRelativePath(folderPath, filePath);
+        return relativePath.Length > 0 &&
+            !relativePath.StartsWith("..", StringComparison.Ordinal) &&
+            !Path.IsPathRooted(relativePath);
+    }
+
+    private static string GetFolderDisplayName(string folderPath)
+    {
+        var name = Path.GetFileName(folderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        return string.IsNullOrWhiteSpace(name) ? folderPath : name;
+    }
+
     private DateTimeOffset GetSortRecentlyRead(LibraryItemViewModel item)
     {
         IEnumerable<ComicBookListItemViewModel> books = item switch
@@ -1034,11 +1156,6 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     {
         _isReaderPreviewPaneEnabled = !_isReaderPreviewPaneEnabled;
         NotifyGlobalSettingsProps();
-
-        if (!_isReaderPreviewPaneEnabled && SelectedBook is not null && !_isReaderFullscreen)
-        {
-            SetReaderFullscreen(true);
-        }
 
         _ = SavePreferencesAsync();
     }
@@ -1767,6 +1884,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         RaisePropertyChanged(nameof(OpenComicsAtLastPosition));
         RaisePropertyChanged(nameof(OpenComicsInFullscreen));
         RaisePropertyChanged(nameof(IsReaderPreviewPaneEnabled));
+        RaisePropertyChanged(nameof(ReaderPreviewPaneLabel));
         RaisePropertyChanged(nameof(LibraryPaneWidth));
         RaisePropertyChanged(nameof(ReaderPreviewSplitterWidth));
         RaisePropertyChanged(nameof(ReaderPreviewPaneWidth));

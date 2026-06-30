@@ -45,6 +45,96 @@
             </Button>
           </Panel>
 
+          <TextBlock Text="STATUS"
+                     Margin="16,14,0,6"
+                     FontSize="9"
+                     FontWeight="SemiBold"
+                     LetterSpacing="1.5"
+                     Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+
+          <Panel>
+            <Border IsVisible="{Binding IsViewStarted}"
+                    BorderBrush="{DynamicResource ComixaPrimaryBrush}"
+                    BorderThickness="3,0,0,0" />
+            <Button Command="{Binding NavigateToStartedCommand}"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Left"
+                    Padding="16,8"
+                    Margin="0,1"
+                    Background="Transparent"
+                    BorderThickness="0">
+              <TextBlock Text="Started" FontSize="13" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+            </Button>
+          </Panel>
+
+          <Panel>
+            <Border IsVisible="{Binding IsViewRead}"
+                    BorderBrush="{DynamicResource ComixaPrimaryBrush}"
+                    BorderThickness="3,0,0,0" />
+            <Button Command="{Binding NavigateToReadCommand}"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Left"
+                    Padding="16,8"
+                    Margin="0,1"
+                    Background="Transparent"
+                    BorderThickness="0">
+              <TextBlock Text="Read" FontSize="13" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+            </Button>
+          </Panel>
+
+          <Panel>
+            <Border IsVisible="{Binding IsViewUnread}"
+                    BorderBrush="{DynamicResource ComixaPrimaryBrush}"
+                    BorderThickness="3,0,0,0" />
+            <Button Command="{Binding NavigateToUnreadCommand}"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Left"
+                    Padding="16,8"
+                    Margin="0,1"
+                    Background="Transparent"
+                    BorderThickness="0">
+              <TextBlock Text="Unread" FontSize="13" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+            </Button>
+          </Panel>
+
+          <TextBlock Text="FOLDERS"
+                     Margin="16,14,0,6"
+                     FontSize="9"
+                     FontWeight="SemiBold"
+                     LetterSpacing="1.5"
+                     Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+
+          <ItemsControl ItemsSource="{Binding LibraryFolders}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:LibraryFolderViewModel">
+                <Panel Margin="4,1">
+                  <Border IsVisible="{Binding IsActive}"
+                          BorderBrush="{DynamicResource ComixaPrimaryBrush}"
+                          BorderThickness="3,0,0,0" />
+                  <Button Command="{Binding SelectCommand}"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Left"
+                          Padding="12,7"
+                          Background="Transparent"
+                          BorderThickness="0">
+                    <StackPanel Spacing="2">
+                      <TextBlock Text="{Binding Name}"
+                                 FontSize="12"
+                                 Foreground="{DynamicResource ComixaOnSurfaceBrush}"
+                                 TextTrimming="CharacterEllipsis"
+                                 MaxWidth="126" />
+                      <TextBlock Text="{Binding Path}"
+                                 FontSize="9"
+                                 Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                                 TextTrimming="CharacterEllipsis"
+                                 MaxWidth="126" />
+                    </StackPanel>
+                  </Button>
+                </Panel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
           <Grid ColumnDefinitions="*,Auto" Margin="16,14,8,4">
             <TextBlock Text="SHELVES"
                        FontSize="9"

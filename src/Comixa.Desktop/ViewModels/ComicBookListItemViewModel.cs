@@ -45,6 +45,12 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
 
     public bool HasProgress => _progress is not null && _progress.PageNumber > 0;
 
+    public bool IsRead => _progress is not null && PageCount > 0 && _progress.PageNumber >= PageCount - 1;
+
+    public bool IsStarted => _progress is not null && _progress.PageNumber > 0 && !IsRead;
+
+    public bool IsUnread => !IsStarted && !IsRead;
+
     public string Title { get; }
     public string? SeriesName { get; }
     public int? IssueNumber { get; }
@@ -84,6 +90,9 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
         RaisePropertyChanged(nameof(Progress));
         RaisePropertyChanged(nameof(ProgressValue));
         RaisePropertyChanged(nameof(HasProgress));
+        RaisePropertyChanged(nameof(IsRead));
+        RaisePropertyChanged(nameof(IsStarted));
+        RaisePropertyChanged(nameof(IsUnread));
         RaisePropertyChanged(nameof(ReadStatusLabel));
     }
 
