@@ -2,7 +2,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using Comixa.Desktop.Services;
 using Comixa.Desktop.ViewModels;
+using System.ComponentModel;
 
 namespace Comixa.Desktop.Views;
 
@@ -14,6 +17,10 @@ public sealed partial class ReaderPaneView : UserControl
     private Point? _pressPoint;
     private bool _isLeftPress;
     private bool _didSwipe;
+    private readonly TranslateTransform _pageAnimationTransform = new();
+    private CancellationTokenSource? _pageAnimationCts;
+    private MainWindowViewModel? _viewModel;
+    private int _lastAnimatedPageIndex;
 
     public ReaderPaneView()
     {
@@ -38,6 +45,8 @@ public sealed partial class ReaderPaneView : UserControl
             OnReaderPointerReleased,
             RoutingStrategies.Bubble,
             handledEventsToo: false);
+        ReaderPageHost.RenderTransform = _pageAnimationTransform;
+        DataContextChanged += OnDataContextChanged;
     }
 
     private void OnReaderWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -47,13 +56,23 @@ public sealed partial class ReaderPaneView : UserControl
             return;
         }
 
-        if (!vm.HasSelectedBook || vm.IsVerticalMode || !e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        if (!vm.HasSelectedBook || vm.IsVerticalMode)
         {
             return;
         }
 
-        vm.AdjustReaderZoom(e.Delta.Y);
-        e.Handled = true;
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control) || vm.ReaderWheelAction == ReaderWheelAction.Zoom)
+        {
+            vm.AdjustReaderZoom(e.Delta.Y);
+            e.Handled = true;
+            return;
+        }
+
+        if (vm.ReaderWheelAction == ReaderWheelAction.PageTurn)
+        {
+            vm.TurnPageFromWheel(e.Delta.Y);
+            e.Handled = true;
+        }
     }
 
     private void OnReaderPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -85,7 +104,12 @@ public sealed partial class ReaderPaneView : UserControl
             return;
         }
 
-        ExecutePageTurn(vm, deltaX < 0);
+        if (!vm.IsDragPageTurnEnabled)
+        {
+            return;
+        }
+
+        vm.TurnPageFromSwipe(deltaX);
         _didSwipe = true;
         _isLeftPress = false;
         e.Pointer.Capture(null);
@@ -103,18 +127,18 @@ public sealed partial class ReaderPaneView : UserControl
         var releasePoint = e.GetPosition(ReaderPageHost);
         var delta = releasePoint - _pressPoint.Value;
 
-        if (!_didSwipe && Math.Abs(delta.X) < 12 && Math.Abs(delta.Y) < 12)
+        if (!_didSwipe && vm.IsEdgePageTurnEnabled && Math.Abs(delta.X) < 12 && Math.Abs(delta.Y) < 12)
         {
             var width = ReaderPageHost.Bounds.Width;
 
             if (releasePoint.X <= width * ClickEdgeRatio)
             {
-                ExecutePageTurn(vm, forward: false);
+                vm.TurnPageFromEdge(rightEdge: false);
                 e.Handled = true;
             }
             else if (releasePoint.X >= width * (1 - ClickEdgeRatio))
             {
-                ExecutePageTurn(vm, forward: true);
+                vm.TurnPageFromEdge(rightEdge: true);
                 e.Handled = true;
             }
         }
@@ -127,7 +151,8 @@ public sealed partial class ReaderPaneView : UserControl
         if (DataContext is not MainWindowViewModel vm ||
             !vm.HasSelectedBook ||
             vm.IsVerticalMode ||
-            vm.IsSettingsPanelVisible)
+            vm.IsSettingsPanelVisible ||
+            (!vm.IsEdgePageTurnEnabled && !vm.IsDragPageTurnEnabled))
         {
             return false;
         }
@@ -135,14 +160,70 @@ public sealed partial class ReaderPaneView : UserControl
         return e.GetCurrentPoint(ReaderPageHost).Properties.IsLeftButtonPressed;
     }
 
-    private static void ExecutePageTurn(MainWindowViewModel vm, bool forward)
+    private void OnDataContextChanged(object? sender, EventArgs e)
     {
-        var command = forward ? vm.PageForwardCommand : vm.PageBackwardCommand;
-
-        if (command.CanExecute(null))
+        if (_viewModel is not null)
         {
-            command.Execute(null);
+            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         }
+
+        _viewModel = DataContext as MainWindowViewModel;
+        if (_viewModel is not null)
+        {
+            _lastAnimatedPageIndex = _viewModel.CurrentPageIndex;
+            _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(MainWindowViewModel.CurrentPageIndex) ||
+            sender is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        var direction = vm.CurrentPageIndex >= _lastAnimatedPageIndex ? 1 : -1;
+        _lastAnimatedPageIndex = vm.CurrentPageIndex;
+        PlayPageAnimation(vm.ReaderPageAnimation, direction);
+    }
+
+    private async void PlayPageAnimation(ReaderPageAnimation animation, int direction)
+    {
+        if (animation == ReaderPageAnimation.None)
+        {
+            ReaderPageHost.Opacity = 1;
+            _pageAnimationTransform.X = 0;
+            return;
+        }
+
+        _pageAnimationCts?.Cancel();
+        _pageAnimationCts = new CancellationTokenSource();
+        var token = _pageAnimationCts.Token;
+
+        try
+        {
+            const int frames = 8;
+            for (var frame = 0; frame <= frames; frame++)
+            {
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                var progress = (double)frame / frames;
+                ReaderPageHost.Opacity = 0.62 + 0.38 * progress;
+                _pageAnimationTransform.X = animation == ReaderPageAnimation.Slide
+                    ? (1 - progress) * 28 * direction
+                    : 0;
+
+                await Task.Delay(16, token).ConfigureAwait(true);
+            }
+
+            ReaderPageHost.Opacity = 1;
+            _pageAnimationTransform.X = 0;
+        }
+        catch (OperationCanceledException) { }
     }
 
     private void ResetPointerState(PointerEventArgs e)

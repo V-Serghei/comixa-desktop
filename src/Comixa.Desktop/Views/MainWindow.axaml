@@ -47,5 +47,11 @@
                     ResizeDirection="Columns" />
       <views:ReaderPaneView Grid.Column="4" />
     </Grid>
+
+    <Border Grid.RowSpan="2"
+            Background="{Binding ReaderBackgroundBrush}"
+            IsVisible="{Binding IsReaderFullscreen}">
+      <views:ReaderPaneView />
+    </Border>
   </Grid>
 </Window>

@@ -10,7 +10,7 @@
             Background="{DynamicResource ComixaSurfaceBrush}">
       <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="24"
-                    MaxWidth="440"
+                    MaxWidth="560"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Margin="40">
@@ -44,6 +44,116 @@
             </StackPanel>
           </StackPanel>
 
+          <StackPanel Spacing="10">
+            <TextBlock Text="READER BEHAVIOR"
+                       FontSize="10"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.2"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <WrapPanel>
+              <ToggleButton Content="Edge clicks"
+                            Margin="0,0,6,6"
+                            IsChecked="{Binding IsEdgePageTurnEnabled, Mode=OneWay}"
+                            Command="{Binding ToggleEdgePageTurnsCommand}" />
+              <ToggleButton Content="Drag turns"
+                            Margin="0,0,6,6"
+                            IsChecked="{Binding IsDragPageTurnEnabled, Mode=OneWay}"
+                            Command="{Binding ToggleDragPageTurnsCommand}" />
+              <ToggleButton Content="Invert turns"
+                            Margin="0,0,6,6"
+                            IsChecked="{Binding IsPageTurnInverted, Mode=OneWay}"
+                            Command="{Binding TogglePageTurnInversionCommand}" />
+              <ToggleButton Content="{Binding PageLayoutLabel}"
+                            Margin="0,0,6,6"
+                            IsChecked="{Binding IsTwoPageMode, Mode=OneWay}"
+                            Command="{Binding ToggleTwoPageModeCommand}" />
+            </WrapPanel>
+          </StackPanel>
+
+          <StackPanel Spacing="10">
+            <TextBlock Text="MOUSE WHEEL"
+                       FontSize="10"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.2"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <RadioButton Content="Scroll"
+                           GroupName="WheelAction"
+                           IsChecked="{Binding IsWheelScrollAction, Mode=OneWay}"
+                           Command="{Binding SetReaderWheelActionCommand}"
+                           CommandParameter="scroll" />
+              <RadioButton Content="Pages"
+                           GroupName="WheelAction"
+                           IsChecked="{Binding IsWheelPageTurnAction, Mode=OneWay}"
+                           Command="{Binding SetReaderWheelActionCommand}"
+                           CommandParameter="page" />
+              <RadioButton Content="Zoom"
+                           GroupName="WheelAction"
+                           IsChecked="{Binding IsWheelZoomAction, Mode=OneWay}"
+                           Command="{Binding SetReaderWheelActionCommand}"
+                           CommandParameter="zoom" />
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel Spacing="10">
+            <TextBlock Text="TONE"
+                       FontSize="10"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.2"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <WrapPanel>
+              <RadioButton Content="Original"
+                           GroupName="Tone"
+                           Margin="0,0,8,6"
+                           IsChecked="{Binding IsReaderToneOriginal, Mode=OneWay}"
+                           Command="{Binding SetReaderColorToneCommand}"
+                           CommandParameter="original" />
+              <RadioButton Content="Warm"
+                           GroupName="Tone"
+                           Margin="0,0,8,6"
+                           IsChecked="{Binding IsReaderToneWarm, Mode=OneWay}"
+                           Command="{Binding SetReaderColorToneCommand}"
+                           CommandParameter="warm" />
+              <RadioButton Content="Paper"
+                           GroupName="Tone"
+                           Margin="0,0,8,6"
+                           IsChecked="{Binding IsReaderTonePaper, Mode=OneWay}"
+                           Command="{Binding SetReaderColorToneCommand}"
+                           CommandParameter="paper" />
+              <RadioButton Content="Cool"
+                           GroupName="Tone"
+                           Margin="0,0,8,6"
+                           IsChecked="{Binding IsReaderToneCool, Mode=OneWay}"
+                           Command="{Binding SetReaderColorToneCommand}"
+                           CommandParameter="cool" />
+            </WrapPanel>
+          </StackPanel>
+
+          <StackPanel Spacing="10">
+            <TextBlock Text="PAGE ANIMATION"
+                       FontSize="10"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.2"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <RadioButton Content="None"
+                           GroupName="Animation"
+                           IsChecked="{Binding IsReaderAnimationNone, Mode=OneWay}"
+                           Command="{Binding SetReaderAnimationCommand}"
+                           CommandParameter="none" />
+              <RadioButton Content="Fade"
+                           GroupName="Animation"
+                           IsChecked="{Binding IsReaderAnimationFade, Mode=OneWay}"
+                           Command="{Binding SetReaderAnimationCommand}"
+                           CommandParameter="fade" />
+              <RadioButton Content="Slide"
+                           GroupName="Animation"
+                           IsChecked="{Binding IsReaderAnimationSlide, Mode=OneWay}"
+                           Command="{Binding SetReaderAnimationCommand}"
+                           CommandParameter="slide" />
+            </StackPanel>
+          </StackPanel>
+
           <StackPanel Spacing="6">
             <TextBlock Text="KEYBOARD SHORTCUTS"
                        FontSize="10"
@@ -52,7 +162,7 @@
                        Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
             <TextBlock Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
                        FontSize="12"
-                       Text="Arrows - navigate pages&#xA;Page Up / Page Down - navigate pages&#xA;Home / End - first / last page&#xA;F - Fit Page / Fit Width&#xA;B - toggle bookmark&#xA;S - settings&#xA;Right-click card - mark read / shelves" />
+                       Text="Left / Right - navigate pages&#xA;Page Up / Page Down - navigate pages&#xA;Home / End - first / last page&#xA;F - Fit Page / Fit Width&#xA;F11 - fullscreen reader&#xA;Esc - exit fullscreen&#xA;B - toggle bookmark&#xA;S - settings&#xA;Right-click card - mark read / shelves" />
           </StackPanel>
 
           <Button Content="Close Settings"
@@ -65,7 +175,7 @@
 
     <Grid RowDefinitions="Auto,*,Auto"
           IsVisible="{Binding !IsSettingsPanelVisible}"
-          Background="#000000">
+          Background="{Binding ReaderBackgroundBrush}">
       <Border Padding="12,7" Background="#DD000000">
         <Grid ColumnDefinitions="*,Auto,Auto">
           <TextBlock Text="{Binding ReaderStatus}"
@@ -101,12 +211,44 @@
             <LayoutTransformControl Margin="20"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
-                                    IsVisible="{Binding HasCurrentPageImage}">
+                                    IsVisible="{Binding IsSinglePageVisible}">
               <LayoutTransformControl.LayoutTransform>
                 <media:ScaleTransform ScaleX="{Binding ReaderZoom}" ScaleY="{Binding ReaderZoom}" />
               </LayoutTransformControl.LayoutTransform>
-              <Image Source="{Binding CurrentPageImage}"
-                     Stretch="Uniform" />
+              <Grid>
+                <Image Source="{Binding CurrentPageImage}"
+                       Stretch="Uniform" />
+                <Border Background="{Binding ReaderPageTintBrush}"
+                        IsVisible="{Binding IsReaderTintVisible}"
+                        IsHitTestVisible="False" />
+              </Grid>
+            </LayoutTransformControl>
+
+            <LayoutTransformControl Margin="20"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding IsTwoPageVisible}">
+              <LayoutTransformControl.LayoutTransform>
+                <media:ScaleTransform ScaleX="{Binding ReaderZoom}" ScaleY="{Binding ReaderZoom}" />
+              </LayoutTransformControl.LayoutTransform>
+              <Grid ColumnDefinitions="Auto,Auto">
+                <Grid Margin="0,0,8,0">
+                  <Image Source="{Binding CurrentPageImage}"
+                         Stretch="Uniform" />
+                  <Border Background="{Binding ReaderPageTintBrush}"
+                          IsVisible="{Binding IsReaderTintVisible}"
+                          IsHitTestVisible="False" />
+                </Grid>
+                <Grid Grid.Column="1"
+                      Margin="8,0,0,0"
+                      IsVisible="{Binding HasNextPageImage}">
+                  <Image Source="{Binding NextPageImage}"
+                         Stretch="Uniform" />
+                  <Border Background="{Binding ReaderPageTintBrush}"
+                          IsVisible="{Binding IsReaderTintVisible}"
+                          IsHitTestVisible="False" />
+                </Grid>
+              </Grid>
             </LayoutTransformControl>
             <StackPanel HorizontalAlignment="Center"
                         VerticalAlignment="Center"
@@ -130,15 +272,49 @@
         <ScrollViewer IsVisible="{Binding IsFitWidthMode}"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
-          <LayoutTransformControl HorizontalAlignment="Stretch"
-                                  IsVisible="{Binding HasCurrentPageImage}">
-            <LayoutTransformControl.LayoutTransform>
-              <media:ScaleTransform ScaleX="{Binding ReaderZoom}" ScaleY="{Binding ReaderZoom}" />
-            </LayoutTransformControl.LayoutTransform>
-            <Image Source="{Binding CurrentPageImage}"
-                   Stretch="Uniform"
-                   HorizontalAlignment="Stretch" />
-          </LayoutTransformControl>
+          <Grid>
+            <LayoutTransformControl HorizontalAlignment="Stretch"
+                                    IsVisible="{Binding IsSinglePageVisible}">
+              <LayoutTransformControl.LayoutTransform>
+                <media:ScaleTransform ScaleX="{Binding ReaderZoom}" ScaleY="{Binding ReaderZoom}" />
+              </LayoutTransformControl.LayoutTransform>
+              <Grid>
+                <Image Source="{Binding CurrentPageImage}"
+                       Stretch="Uniform"
+                       HorizontalAlignment="Stretch" />
+                <Border Background="{Binding ReaderPageTintBrush}"
+                        IsVisible="{Binding IsReaderTintVisible}"
+                        IsHitTestVisible="False" />
+              </Grid>
+            </LayoutTransformControl>
+
+            <LayoutTransformControl HorizontalAlignment="Stretch"
+                                    IsVisible="{Binding IsTwoPageVisible}">
+              <LayoutTransformControl.LayoutTransform>
+                <media:ScaleTransform ScaleX="{Binding ReaderZoom}" ScaleY="{Binding ReaderZoom}" />
+              </LayoutTransformControl.LayoutTransform>
+              <Grid ColumnDefinitions="*,*">
+                <Grid Margin="0,0,4,0">
+                  <Image Source="{Binding CurrentPageImage}"
+                         Stretch="Uniform"
+                         HorizontalAlignment="Stretch" />
+                  <Border Background="{Binding ReaderPageTintBrush}"
+                          IsVisible="{Binding IsReaderTintVisible}"
+                          IsHitTestVisible="False" />
+                </Grid>
+                <Grid Grid.Column="1"
+                      Margin="4,0,0,0"
+                      IsVisible="{Binding HasNextPageImage}">
+                  <Image Source="{Binding NextPageImage}"
+                         Stretch="Uniform"
+                         HorizontalAlignment="Stretch" />
+                  <Border Background="{Binding ReaderPageTintBrush}"
+                          IsVisible="{Binding IsReaderTintVisible}"
+                          IsHitTestVisible="False" />
+                </Grid>
+              </Grid>
+            </LayoutTransformControl>
+          </Grid>
         </ScrollViewer>
       </Grid>
 
@@ -155,7 +331,7 @@
       </ScrollViewer>
 
       <Border Grid.Row="2" Padding="12,9" Background="#DD000000">
-        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+        <Grid ColumnDefinitions="Auto,*,Auto">
           <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
             <Button Content="Previous"
                     Command="{Binding PreviousPageCommand}"
@@ -173,23 +349,28 @@
                      FontSize="13"
                      FontWeight="SemiBold" />
 
-          <TextBlock Grid.Column="2"
-                     Text="{Binding ZoomLabel}"
-                     Foreground="#B8FFFFFF"
-                     VerticalAlignment="Center"
-                     Margin="0,0,8,0"
-                     FontSize="12" />
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="{Binding ZoomLabel}"
+                       Foreground="#B8FFFFFF"
+                       VerticalAlignment="Center"
+                       FontSize="12" />
 
-          <Button Grid.Column="3"
-                  Content="{Binding BookmarkIcon}"
-                  Command="{Binding ToggleBookmarkCommand}"
-                  Margin="0,0,6,0"
-                  ToolTip.Tip="Toggle bookmark (B)" />
+            <Button Content="{Binding BookmarkIcon}"
+                    Command="{Binding ToggleBookmarkCommand}"
+                    ToolTip.Tip="Toggle bookmark (B)" />
 
-          <Button Grid.Column="4"
-                  Content="{Binding FitModeLabel}"
-                  Command="{Binding ToggleFitModeCommand}"
-                  ToolTip.Tip="Fit Page / Fit Width (F)" />
+            <Button Content="{Binding FitModeLabel}"
+                    Command="{Binding ToggleFitModeCommand}"
+                    ToolTip.Tip="Fit Page / Fit Width (F)" />
+
+            <Button Content="{Binding PageLayoutLabel}"
+                    Command="{Binding ToggleTwoPageModeCommand}"
+                    ToolTip.Tip="Toggle one/two page layout" />
+
+            <Button Content="{Binding ReaderFullscreenLabel}"
+                    Command="{Binding ToggleReaderFullscreenCommand}"
+                    ToolTip.Tip="Fullscreen reader (F11)" />
+          </StackPanel>
         </Grid>
       </Border>
     </Grid>

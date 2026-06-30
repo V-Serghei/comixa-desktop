@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Threading;
 using Avalonia;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Comixa.Core.Models;
@@ -50,6 +51,14 @@ public sealed class MainWindowViewModel : ViewModelBase
     private bool _isDarkTheme = true;
     private ReadingDirection _readingDirection = ReadingDirection.LeftToRight;
     private FitMode _fitMode = FitMode.FitPage;
+    private ReaderWheelAction _readerWheelAction = ReaderWheelAction.Scroll;
+    private bool _isEdgePageTurnEnabled = true;
+    private bool _isDragPageTurnEnabled = true;
+    private bool _isPageTurnInverted;
+    private ReaderColorTone _readerColorTone = ReaderColorTone.Original;
+    private ReaderPageAnimation _readerPageAnimation = ReaderPageAnimation.Fade;
+    private bool _isTwoPageMode;
+    private bool _isReaderFullscreen;
 
     // Shelf creation state
     private bool _isCreatingShelf;
@@ -58,6 +67,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     // Reader state
     private ComicBookListItemViewModel? _selectedBook;
     private Bitmap? _currentPageImage;
+    private Bitmap? _nextPageImage;
     private int _currentPageIndex;
     private string _statusMessage = "Add a local folder to begin.";
     private string _readerStatus = "Select a book to start reading.";
@@ -106,24 +116,24 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         // UI Prev/Next (direction-aware for RTL)
         PreviousPageCommand = new RelayCommand(
-            () => MovePageByIndex(_readingDirection == ReadingDirection.RightToLeft ? 1 : -1),
+            () => MovePageByIndex(_readingDirection == ReadingDirection.RightToLeft ? PageStep : -PageStep),
             () => SelectedBook is not null &&
                   (_readingDirection == ReadingDirection.RightToLeft
-                      ? CurrentPageIndex + 1 < (SelectedBook?.ComicBook.PageCount ?? 0)
+                      ? CurrentPageIndex + PageStep < (SelectedBook?.ComicBook.PageCount ?? 0)
                       : CurrentPageIndex > 0));
         NextPageCommand = new RelayCommand(
-            () => MovePageByIndex(_readingDirection == ReadingDirection.RightToLeft ? -1 : 1),
+            () => MovePageByIndex(_readingDirection == ReadingDirection.RightToLeft ? -PageStep : PageStep),
             () => SelectedBook is not null &&
                   (_readingDirection == ReadingDirection.RightToLeft
                       ? CurrentPageIndex > 0
-                      : CurrentPageIndex + 1 < (SelectedBook?.ComicBook.PageCount ?? 0)));
+                      : CurrentPageIndex + PageStep < (SelectedBook?.ComicBook.PageCount ?? 0)));
 
         PageBackwardCommand = new RelayCommand(
-            () => MovePageByIndex(-1),
+            () => MovePageByIndex(-PageStep),
             () => SelectedBook is not null && CurrentPageIndex > 0);
         PageForwardCommand = new RelayCommand(
-            () => MovePageByIndex(1),
-            () => SelectedBook is not null && CurrentPageIndex + 1 < (SelectedBook?.ComicBook.PageCount ?? 0));
+            () => MovePageByIndex(PageStep),
+            () => SelectedBook is not null && CurrentPageIndex + PageStep < (SelectedBook?.ComicBook.PageCount ?? 0));
         GoToFirstPageCommand = new RelayCommand(
             () => JumpToPage(0),
             () => SelectedBook is not null && CurrentPageIndex > 0);
@@ -134,6 +144,14 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         ToggleSettingsPanelCommand = new RelayCommand(ToggleSettingsPanel);
         ToggleFitModeCommand = new RelayCommand(ToggleFitMode);
+        ToggleReaderFullscreenCommand = new RelayCommand(ToggleReaderFullscreen);
+        ToggleTwoPageModeCommand = new RelayCommand(ToggleTwoPageMode);
+        ToggleEdgePageTurnsCommand = new RelayCommand(ToggleEdgePageTurns);
+        ToggleDragPageTurnsCommand = new RelayCommand(ToggleDragPageTurns);
+        TogglePageTurnInversionCommand = new RelayCommand(TogglePageTurnInversion);
+        SetReaderWheelActionCommand = new RelayCommand<string>(SetReaderWheelAction);
+        SetReaderColorToneCommand = new RelayCommand<string>(SetReaderColorTone);
+        SetReaderAnimationCommand = new RelayCommand<string>(SetReaderAnimation);
         SetSortOrderCommand = new RelayCommand<string>(SetSortOrder);
         ToggleUnreadOnlyCommand = new RelayCommand(ToggleUnreadOnly);
         ToggleCbzFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Cbz));
@@ -182,6 +200,14 @@ public sealed class MainWindowViewModel : ViewModelBase
     public RelayCommand GoToFirstPageCommand { get; }
     public RelayCommand GoToLastPageCommand { get; }
     public RelayCommand ToggleFitModeCommand { get; }
+    public RelayCommand ToggleReaderFullscreenCommand { get; }
+    public RelayCommand ToggleTwoPageModeCommand { get; }
+    public RelayCommand ToggleEdgePageTurnsCommand { get; }
+    public RelayCommand ToggleDragPageTurnsCommand { get; }
+    public RelayCommand TogglePageTurnInversionCommand { get; }
+    public RelayCommand<string> SetReaderWheelActionCommand { get; }
+    public RelayCommand<string> SetReaderColorToneCommand { get; }
+    public RelayCommand<string> SetReaderAnimationCommand { get; }
     public AsyncRelayCommand ToggleBookmarkCommand { get; }
 
     // Commands - library
@@ -277,6 +303,44 @@ public sealed class MainWindowViewModel : ViewModelBase
     public bool IsRightToLeft => _readingDirection == ReadingDirection.RightToLeft;
     public bool IsTopToBottom => _readingDirection == ReadingDirection.TopToBottom;
     public bool IsVerticalMode => _readingDirection == ReadingDirection.TopToBottom;
+    public bool IsReaderFullscreen => _isReaderFullscreen;
+    public string ReaderFullscreenLabel => _isReaderFullscreen ? "Exit Fullscreen" : "Fullscreen";
+    public bool IsTwoPageMode => _isTwoPageMode;
+    public bool IsSinglePageMode => !_isTwoPageMode;
+    public string PageLayoutLabel => _isTwoPageMode ? "2 Pages" : "1 Page";
+    public bool IsEdgePageTurnEnabled => _isEdgePageTurnEnabled;
+    public bool IsDragPageTurnEnabled => _isDragPageTurnEnabled;
+    public bool IsPageTurnInverted => _isPageTurnInverted;
+    public ReaderWheelAction ReaderWheelAction => _readerWheelAction;
+    public bool IsWheelScrollAction => _readerWheelAction == ReaderWheelAction.Scroll;
+    public bool IsWheelPageTurnAction => _readerWheelAction == ReaderWheelAction.PageTurn;
+    public bool IsWheelZoomAction => _readerWheelAction == ReaderWheelAction.Zoom;
+    public ReaderColorTone ReaderColorTone => _readerColorTone;
+    public bool IsReaderToneOriginal => _readerColorTone == ReaderColorTone.Original;
+    public bool IsReaderToneWarm => _readerColorTone == ReaderColorTone.Warm;
+    public bool IsReaderTonePaper => _readerColorTone == ReaderColorTone.Paper;
+    public bool IsReaderToneCool => _readerColorTone == ReaderColorTone.Cool;
+    public ReaderPageAnimation ReaderPageAnimation => _readerPageAnimation;
+    public bool IsReaderAnimationNone => _readerPageAnimation == ReaderPageAnimation.None;
+    public bool IsReaderAnimationFade => _readerPageAnimation == ReaderPageAnimation.Fade;
+    public bool IsReaderAnimationSlide => _readerPageAnimation == ReaderPageAnimation.Slide;
+    public IBrush ReaderBackgroundBrush => _readerColorTone switch
+    {
+        ReaderColorTone.Warm => new SolidColorBrush(Color.FromRgb(31, 23, 15)),
+        ReaderColorTone.Paper => new SolidColorBrush(Color.FromRgb(239, 229, 207)),
+        ReaderColorTone.Cool => new SolidColorBrush(Color.FromRgb(8, 13, 23)),
+        _ => Brushes.Black
+    };
+
+    public IBrush ReaderPageTintBrush => _readerColorTone switch
+    {
+        ReaderColorTone.Warm => new SolidColorBrush(Color.FromArgb(34, 219, 149, 79)),
+        ReaderColorTone.Paper => new SolidColorBrush(Color.FromArgb(30, 242, 210, 138)),
+        ReaderColorTone.Cool => new SolidColorBrush(Color.FromArgb(30, 70, 120, 255)),
+        _ => Brushes.Transparent
+    };
+
+    public bool IsReaderTintVisible => _readerColorTone != ReaderColorTone.Original;
 
     // Fit mode
     public bool IsFitPageMode => _fitMode == FitMode.FitPage;
@@ -284,6 +348,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     public string FitModeLabel => _fitMode == FitMode.FitPage ? "Fit Page" : "Fit Width";
     public double ReaderZoom => _readerZoom;
     public string ZoomLabel => $"{_readerZoom:P0}";
+    private int PageStep => _isTwoPageMode && !IsVerticalMode ? 2 : 1;
 
     // Reader state
     public ComicBookListItemViewModel? SelectedBook
@@ -329,10 +394,28 @@ public sealed class MainWindowViewModel : ViewModelBase
             _currentPageImage = value;
             RaisePropertyChanged();
             RaisePropertyChanged(nameof(HasCurrentPageImage));
+            RaisePropertyChanged(nameof(IsSinglePageVisible));
+            RaisePropertyChanged(nameof(IsTwoPageVisible));
         }
     }
 
     public bool HasCurrentPageImage => CurrentPageImage is not null;
+    public bool IsSinglePageVisible => HasCurrentPageImage && (!_isTwoPageMode || IsVerticalMode);
+    public bool IsTwoPageVisible => HasCurrentPageImage && _isTwoPageMode && !IsVerticalMode;
+
+    public Bitmap? NextPageImage
+    {
+        get => _nextPageImage;
+        private set
+        {
+            if (_nextPageImage == value) return;
+            _nextPageImage = value;
+            RaisePropertyChanged();
+            RaisePropertyChanged(nameof(HasNextPageImage));
+        }
+    }
+
+    public bool HasNextPageImage => NextPageImage is not null;
 
     public int CurrentPageIndex
     {
@@ -354,9 +437,18 @@ public sealed class MainWindowViewModel : ViewModelBase
         get
         {
             if (SelectedBook is null) return "";
-            return SelectedBook.ComicBook.PageCount == 0
-                ? "Loading..."
-                : $"{CurrentPageIndex + 1} / {SelectedBook.ComicBook.PageCount}";
+            var pageCount = SelectedBook.ComicBook.PageCount;
+            if (pageCount == 0)
+            {
+                return "Loading...";
+            }
+
+            if (_isTwoPageMode && !IsVerticalMode && CurrentPageIndex + 1 < pageCount)
+            {
+                return $"{CurrentPageIndex + 1}-{CurrentPageIndex + 2} / {pageCount}";
+            }
+
+            return $"{CurrentPageIndex + 1} / {pageCount}";
         }
     }
 
@@ -384,10 +476,18 @@ public sealed class MainWindowViewModel : ViewModelBase
         var prefs = await _preferencesStore.LoadAsync();
         _isDarkTheme = prefs.IsDarkTheme;
         _readingDirection = prefs.ReadingDirection;
+        _readerWheelAction = prefs.ReaderWheelAction;
+        _isEdgePageTurnEnabled = prefs.IsEdgePageTurnEnabled;
+        _isDragPageTurnEnabled = prefs.IsDragPageTurnEnabled;
+        _isPageTurnInverted = prefs.IsPageTurnInverted;
+        _readerColorTone = prefs.ReaderColorTone;
+        _readerPageAnimation = prefs.ReaderPageAnimation;
+        _isTwoPageMode = prefs.IsTwoPageMode;
         ApplyTheme();
         RaisePropertyChanged(nameof(IsDarkTheme));
         RaisePropertyChanged(nameof(IsLightTheme));
         NotifyAllDirectionProps();
+        NotifyReaderSettingsProps();
 
         await LoadShelvesAsync();
         await LoadSavedFoldersAsync();
@@ -818,6 +918,85 @@ public sealed class MainWindowViewModel : ViewModelBase
         RaisePropertyChanged(nameof(FitModeLabel));
     }
 
+    private void ToggleReaderFullscreen()
+    {
+        _isReaderFullscreen = !_isReaderFullscreen;
+        RaisePropertyChanged(nameof(IsReaderFullscreen));
+        RaisePropertyChanged(nameof(ReaderFullscreenLabel));
+    }
+
+    private void ToggleTwoPageMode()
+    {
+        _isTwoPageMode = !_isTwoPageMode;
+        NotifyReaderSettingsProps();
+        RefreshAllNavCanExecute();
+
+        if (SelectedBook is not null && !IsVerticalMode)
+        {
+            _ = LoadCurrentPageAsync();
+        }
+
+        _ = SavePreferencesAsync();
+    }
+
+    private void ToggleEdgePageTurns()
+    {
+        _isEdgePageTurnEnabled = !_isEdgePageTurnEnabled;
+        RaisePropertyChanged(nameof(IsEdgePageTurnEnabled));
+        _ = SavePreferencesAsync();
+    }
+
+    private void ToggleDragPageTurns()
+    {
+        _isDragPageTurnEnabled = !_isDragPageTurnEnabled;
+        RaisePropertyChanged(nameof(IsDragPageTurnEnabled));
+        _ = SavePreferencesAsync();
+    }
+
+    private void TogglePageTurnInversion()
+    {
+        _isPageTurnInverted = !_isPageTurnInverted;
+        RaisePropertyChanged(nameof(IsPageTurnInverted));
+        _ = SavePreferencesAsync();
+    }
+
+    private void SetReaderWheelAction(string? key)
+    {
+        _readerWheelAction = key switch
+        {
+            "page" => ReaderWheelAction.PageTurn,
+            "zoom" => ReaderWheelAction.Zoom,
+            _ => ReaderWheelAction.Scroll
+        };
+        NotifyReaderSettingsProps();
+        _ = SavePreferencesAsync();
+    }
+
+    private void SetReaderColorTone(string? key)
+    {
+        _readerColorTone = key switch
+        {
+            "warm" => ReaderColorTone.Warm,
+            "paper" => ReaderColorTone.Paper,
+            "cool" => ReaderColorTone.Cool,
+            _ => ReaderColorTone.Original
+        };
+        NotifyReaderSettingsProps();
+        _ = SavePreferencesAsync();
+    }
+
+    private void SetReaderAnimation(string? key)
+    {
+        _readerPageAnimation = key switch
+        {
+            "fade" => ReaderPageAnimation.Fade,
+            "slide" => ReaderPageAnimation.Slide,
+            _ => ReaderPageAnimation.None
+        };
+        NotifyReaderSettingsProps();
+        _ = SavePreferencesAsync();
+    }
+
     public void AdjustReaderZoom(double wheelDelta)
     {
         var factor = wheelDelta > 0 ? 1.1 : 1 / 1.1;
@@ -831,6 +1010,35 @@ public sealed class MainWindowViewModel : ViewModelBase
         _readerZoom = nextZoom;
         RaisePropertyChanged(nameof(ReaderZoom));
         RaisePropertyChanged(nameof(ZoomLabel));
+    }
+
+    public void TurnPageFromEdge(bool rightEdge)
+    {
+        TurnPage(rightEdge);
+    }
+
+    public void TurnPageFromSwipe(double horizontalDelta)
+    {
+        TurnPage(horizontalDelta < 0);
+    }
+
+    public void TurnPageFromWheel(double wheelDelta)
+    {
+        TurnPage(wheelDelta < 0);
+    }
+
+    private void TurnPage(bool forward)
+    {
+        if (_isPageTurnInverted)
+        {
+            forward = !forward;
+        }
+
+        var command = forward ? PageForwardCommand : PageBackwardCommand;
+        if (command.CanExecute(null))
+        {
+            command.Execute(null);
+        }
     }
 
     private void ToggleTheme()
@@ -872,7 +1080,16 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     private async Task SavePreferencesAsync()
     {
-        await _preferencesStore.SaveAsync(new UserPreferences(_isDarkTheme, _readingDirection));
+        await _preferencesStore.SaveAsync(new UserPreferences(
+            _isDarkTheme,
+            _readingDirection,
+            _readerWheelAction,
+            _isEdgePageTurnEnabled,
+            _isDragPageTurnEnabled,
+            _isPageTurnInverted,
+            _readerColorTone,
+            _readerPageAnimation,
+            _isTwoPageMode));
     }
 
     // --- Bookmarks ---
@@ -953,6 +1170,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         if (SelectedBook is null)
         {
             CurrentPageImage = null;
+            NextPageImage = null;
             IsPageLoading = false;
             ReaderStatus = "Select a book to start reading.";
             return;
@@ -961,6 +1179,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         var book = SelectedBook.ComicBook;
         if (book.Format is ComicFormat.Cbr or ComicFormat.Rar or ComicFormat.SevenZip or ComicFormat.Epub)
         {
+            NextPageImage = null;
             ReaderStatus = $"{book.Format} format not supported yet.";
             RaisePropertyChanged(nameof(CurrentPageLabel));
             RefreshAllNavCanExecute();
@@ -969,6 +1188,7 @@ public sealed class MainWindowViewModel : ViewModelBase
 
         IsPageLoading = true;
         ReaderStatus = book.Title;
+        NextPageImage = null;
 
         try
         {
@@ -983,7 +1203,14 @@ public sealed class MainWindowViewModel : ViewModelBase
             if (CurrentPageImage is null)
                 ReaderStatus = "Page could not be loaded.";
             else
+            {
+                if (_isTwoPageMode)
+                {
+                    _ = LoadNextPageImageAsync(book, CurrentPageIndex, loadVersion, cts.Token);
+                }
+
                 _ = PrefetchAdjacentPagesAsync(book, CurrentPageIndex);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -1001,12 +1228,41 @@ public sealed class MainWindowViewModel : ViewModelBase
         RefreshAllNavCanExecute();
     }
 
+    private async Task LoadNextPageImageAsync(
+        ComicBook book,
+        int currentPageIndex,
+        int loadVersion,
+        CancellationToken cancellationToken)
+    {
+        var nextPageIndex = currentPageIndex + 1;
+        if (nextPageIndex >= book.PageCount)
+        {
+            return;
+        }
+
+        try
+        {
+            var page = await _pagePreviewLoader.LoadPageAsync(book, nextPageIndex, cancellationToken);
+            if (cancellationToken.IsCancellationRequested ||
+                loadVersion != _currentPageLoadVersion ||
+                CurrentPageIndex != currentPageIndex)
+            {
+                return;
+            }
+
+            NextPageImage = page;
+        }
+        catch (OperationCanceledException) { }
+    }
+
     private async Task PrefetchAdjacentPagesAsync(ComicBook book, int pageIndex)
     {
         try
         {
             var pageCount = book.PageCount;
-            var pageIndexes = new[] { pageIndex + 1, pageIndex - 1 };
+            int[] pageIndexes = _isTwoPageMode
+                ? [pageIndex + 1, pageIndex + 2, pageIndex - 1, pageIndex - 2]
+                : [pageIndex + 1, pageIndex - 1];
 
             foreach (var index in pageIndexes)
             {
@@ -1114,5 +1370,40 @@ public sealed class MainWindowViewModel : ViewModelBase
         RaisePropertyChanged(nameof(IsRightToLeft));
         RaisePropertyChanged(nameof(IsTopToBottom));
         RaisePropertyChanged(nameof(IsVerticalMode));
+        RaisePropertyChanged(nameof(IsSinglePageVisible));
+        RaisePropertyChanged(nameof(IsTwoPageVisible));
+        RaisePropertyChanged(nameof(CurrentPageLabel));
+        RefreshAllNavCanExecute();
+    }
+
+    private void NotifyReaderSettingsProps()
+    {
+        RaisePropertyChanged(nameof(IsReaderFullscreen));
+        RaisePropertyChanged(nameof(ReaderFullscreenLabel));
+        RaisePropertyChanged(nameof(IsTwoPageMode));
+        RaisePropertyChanged(nameof(IsSinglePageMode));
+        RaisePropertyChanged(nameof(PageLayoutLabel));
+        RaisePropertyChanged(nameof(IsEdgePageTurnEnabled));
+        RaisePropertyChanged(nameof(IsDragPageTurnEnabled));
+        RaisePropertyChanged(nameof(IsPageTurnInverted));
+        RaisePropertyChanged(nameof(ReaderWheelAction));
+        RaisePropertyChanged(nameof(IsWheelScrollAction));
+        RaisePropertyChanged(nameof(IsWheelPageTurnAction));
+        RaisePropertyChanged(nameof(IsWheelZoomAction));
+        RaisePropertyChanged(nameof(ReaderColorTone));
+        RaisePropertyChanged(nameof(IsReaderToneOriginal));
+        RaisePropertyChanged(nameof(IsReaderToneWarm));
+        RaisePropertyChanged(nameof(IsReaderTonePaper));
+        RaisePropertyChanged(nameof(IsReaderToneCool));
+        RaisePropertyChanged(nameof(ReaderPageAnimation));
+        RaisePropertyChanged(nameof(IsReaderAnimationNone));
+        RaisePropertyChanged(nameof(IsReaderAnimationFade));
+        RaisePropertyChanged(nameof(IsReaderAnimationSlide));
+        RaisePropertyChanged(nameof(ReaderBackgroundBrush));
+        RaisePropertyChanged(nameof(ReaderPageTintBrush));
+        RaisePropertyChanged(nameof(IsReaderTintVisible));
+        RaisePropertyChanged(nameof(IsSinglePageVisible));
+        RaisePropertyChanged(nameof(IsTwoPageVisible));
+        RaisePropertyChanged(nameof(CurrentPageLabel));
     }
 }
