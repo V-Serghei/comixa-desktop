@@ -13,7 +13,7 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
     {
         ComicBook = comicBook;
         Title = comicBook.Title;
-        SeriesName = comicBook.SeriesName;
+        SeriesName = ResolveSeriesName(comicBook);
         IssueNumber = comicBook.IssueNumber;
         Format = comicBook.Format.ToString().ToUpperInvariant();
         PageCount = comicBook.PageCount;
@@ -85,5 +85,61 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
         RaisePropertyChanged(nameof(ProgressValue));
         RaisePropertyChanged(nameof(HasProgress));
         RaisePropertyChanged(nameof(ReadStatusLabel));
+    }
+
+    private static string? ResolveSeriesName(ComicBook comicBook)
+    {
+        if (comicBook.IssueNumber is null || !ShouldPreferParentFolder(comicBook))
+        {
+            return comicBook.SeriesName;
+        }
+
+        var parent = Directory.GetParent(comicBook.FilePath);
+        return string.IsNullOrWhiteSpace(parent?.Name)
+            ? comicBook.SeriesName
+            : parent.Name;
+    }
+
+    private static bool ShouldPreferParentFolder(ComicBook comicBook)
+    {
+        if (string.IsNullOrWhiteSpace(comicBook.SeriesName))
+        {
+            return true;
+        }
+
+        return comicBook.SeriesName.Equals(comicBook.Title, StringComparison.OrdinalIgnoreCase)
+            || StartsWithIssueNumber(comicBook.Title, comicBook.IssueNumber.Value)
+            || int.TryParse(comicBook.SeriesName, out _)
+            || comicBook.SeriesName.StartsWith("chapter", StringComparison.OrdinalIgnoreCase)
+            || comicBook.SeriesName.StartsWith("ch ", StringComparison.OrdinalIgnoreCase)
+            || comicBook.SeriesName.StartsWith("part", StringComparison.OrdinalIgnoreCase)
+            || comicBook.SeriesName.StartsWith("pt ", StringComparison.OrdinalIgnoreCase)
+            || comicBook.SeriesName.StartsWith("episode", StringComparison.OrdinalIgnoreCase)
+            || comicBook.SeriesName.StartsWith("ep ", StringComparison.OrdinalIgnoreCase)
+            || comicBook.SeriesName.StartsWith("\u0433\u043b\u0430\u0432\u0430", StringComparison.OrdinalIgnoreCase)
+            || comicBook.SeriesName.StartsWith("\u0447\u0430\u0441\u0442\u044c", StringComparison.OrdinalIgnoreCase)
+            || comicBook.SeriesName.StartsWith("\u0442\u043e\u043c", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool StartsWithIssueNumber(string title, int issueNumber)
+    {
+        var trimmed = title.TrimStart();
+        for (var width = 1; width <= 4; width++)
+        {
+            var value = issueNumber.ToString($"D{width}");
+            if (!trimmed.StartsWith(value, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            return trimmed.Length == value.Length || IsIssueSeparator(trimmed[value.Length]);
+        }
+
+        return false;
+    }
+
+    private static bool IsIssueSeparator(char value)
+    {
+        return char.IsWhiteSpace(value) || value is '-' or '_' or '.' or ',';
     }
 }

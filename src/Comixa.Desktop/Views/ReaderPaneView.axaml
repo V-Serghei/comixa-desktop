@@ -368,6 +368,10 @@
             <Button Content="Next"
                     Command="{Binding NextPageCommand}"
                     ToolTip.Tip="Next page" />
+            <Button Content="{Binding NextSeriesBookActionLabel}"
+                    Command="{Binding OpenNextSeriesBookCommand}"
+                    IsVisible="{Binding HasNextSeriesBookPrompt}"
+                    ToolTip.Tip="Open the next part in this series" />
           </StackPanel>
 
           <TextBlock Grid.Column="1"

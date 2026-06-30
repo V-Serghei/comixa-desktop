@@ -79,6 +79,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _isLoadingLibrary;
     private bool _isPageLoading;
     private double _readerZoom = 1.0;
+    private ComicBookListItemViewModel? _nextSeriesBook;
+    private bool _isNextSeriesBookPromptVisible;
+    private string _nextSeriesBookActionLabel = "";
 
     // Bookmarks
     private List<Bookmark> _currentBookBookmarks = [];
@@ -128,21 +131,21 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             () => MovePageByIndex(_readingDirection == ReadingDirection.RightToLeft ? PageStep : -PageStep),
             () => SelectedBook is not null &&
                   (_readingDirection == ReadingDirection.RightToLeft
-                      ? CurrentPageIndex + PageStep < (SelectedBook?.ComicBook.PageCount ?? 0)
+                      ? CurrentPageIndex + PageStep < (SelectedBook?.ComicBook.PageCount ?? 0) || _nextSeriesBook is not null
                       : CurrentPageIndex > 0));
         NextPageCommand = new RelayCommand(
             () => MovePageByIndex(_readingDirection == ReadingDirection.RightToLeft ? -PageStep : PageStep),
             () => SelectedBook is not null &&
                   (_readingDirection == ReadingDirection.RightToLeft
                       ? CurrentPageIndex > 0
-                      : CurrentPageIndex + PageStep < (SelectedBook?.ComicBook.PageCount ?? 0)));
+                      : CurrentPageIndex + PageStep < (SelectedBook?.ComicBook.PageCount ?? 0) || _nextSeriesBook is not null));
 
         PageBackwardCommand = new RelayCommand(
             () => MovePageByIndex(-PageStep),
             () => SelectedBook is not null && CurrentPageIndex > 0);
         PageForwardCommand = new RelayCommand(
             () => MovePageByIndex(PageStep),
-            () => SelectedBook is not null && CurrentPageIndex + PageStep < (SelectedBook?.ComicBook.PageCount ?? 0));
+            () => SelectedBook is not null && (CurrentPageIndex + PageStep < (SelectedBook?.ComicBook.PageCount ?? 0) || _nextSeriesBook is not null));
         GoToFirstPageCommand = new RelayCommand(
             () => JumpToPage(0),
             () => SelectedBook is not null && CurrentPageIndex > 0);
@@ -189,6 +192,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         });
 
         ToggleBookmarkCommand = new AsyncRelayCommand(ToggleBookmarkAsync);
+        OpenNextSeriesBookCommand = new RelayCommand(OpenNextSeriesBook, () => HasNextSeriesBookPrompt);
 
         _ = InitializeAsync();
     }
@@ -226,6 +230,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public RelayCommand<string> SetReaderColorToneCommand { get; }
     public RelayCommand<string> SetReaderAnimationCommand { get; }
     public AsyncRelayCommand ToggleBookmarkCommand { get; }
+    public RelayCommand OpenNextSeriesBookCommand { get; }
 
     // Commands - library
     public RelayCommand ToggleSettingsPanelCommand { get; }
@@ -385,8 +390,10 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         {
             if (_selectedBook == value) return;
             CancelBookPreload();
+            HideNextSeriesBookPrompt();
             _selectedBook = value;
             CurrentPageIndex = GetInitialPageIndex(value);
+            UpdateNextSeriesBook();
             RaisePropertyChanged();
             RaisePropertyChanged(nameof(HasSelectedBook));
             RaisePropertyChanged(nameof(Title));
@@ -496,6 +503,10 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _currentBookBookmarks.Any(b => b.PageNumber == _currentPageIndex);
 
     public string BookmarkIcon => IsCurrentPageBookmarked ? "Bookmarked" : "Bookmark";
+
+    public bool HasNextSeriesBookPrompt => _isNextSeriesBookPromptVisible && _nextSeriesBook is not null;
+
+    public string NextSeriesBookActionLabel => _nextSeriesBookActionLabel;
 
     private int GetInitialPageIndex(ComicBookListItemViewModel? book)
     {
@@ -612,6 +623,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             : "No CBZ, ZIP, PDF or image folders found.";
 
         RaisePropertyChanged(nameof(IsLibraryEmpty));
+        UpdateNextSeriesBook();
         RefreshDisplayedItems();
 
         _ = LoadCoversAsync();
@@ -883,13 +895,19 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     {
         const string noSeriesPrefix = "\x0000";
         var groups = books
-            .GroupBy(b => b.SeriesName ?? noSeriesPrefix + b.Title)
+            .GroupBy(b => string.IsNullOrWhiteSpace(b.SeriesName) ? noSeriesPrefix + b.Title : b.SeriesName!)
+            .GroupBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new
+            {
+                Key = group.First().Key,
+                Books = group.SelectMany(items => items).ToList()
+            })
             .ToList();
 
         var result = new List<LibraryItemViewModel>();
         foreach (var group in groups)
         {
-            var list = group.ToList();
+            var list = SortSeriesBooks(group.Books).ToList();
             if (!group.Key.StartsWith(noSeriesPrefix) && list.Count >= 2)
             {
                 result.Add(new SeriesLibraryItemViewModel(group.Key, list, OpenSeries));
@@ -932,6 +950,15 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         SeriesLibraryItemViewModel series => series.Books.Min(b => b.ComicBook.AddedAt),
         _ => DateTimeOffset.MinValue
     };
+
+    private static IEnumerable<ComicBookListItemViewModel> SortSeriesBooks(IEnumerable<ComicBookListItemViewModel> books)
+    {
+        return books
+            .OrderBy(book => book.IssueNumber is null)
+            .ThenBy(book => book.IssueNumber ?? int.MaxValue)
+            .ThenBy(book => book.Title, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(book => book.FilePath, StringComparer.OrdinalIgnoreCase);
+    }
 
     private DateTimeOffset GetSortRecentlyRead(LibraryItemViewModel item)
     {
@@ -1256,11 +1283,21 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private void MovePageByIndex(int delta)
     {
         if (SelectedBook is null) return;
+        var pageCount = SelectedBook.ComicBook.PageCount;
+        if (pageCount <= 0) return;
+
+        if (delta > 0 && CurrentPageIndex + PageStep >= pageCount)
+        {
+            ShowNextSeriesBookPrompt();
+            return;
+        }
+
         var next = Math.Clamp(
             CurrentPageIndex + delta,
             0,
-            Math.Max(0, SelectedBook.ComicBook.PageCount - 1));
+            Math.Max(0, pageCount - 1));
         if (next == CurrentPageIndex) return;
+        HideNextSeriesBookPrompt();
         CurrentPageIndex = next;
         _ = LoadCurrentPageAsync();
         _ = SaveProgressAsync();
@@ -1271,9 +1308,108 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         if (SelectedBook is null) return;
         var clamped = Math.Clamp(pageIndex, 0, Math.Max(0, SelectedBook.ComicBook.PageCount - 1));
         if (clamped == CurrentPageIndex) return;
+        HideNextSeriesBookPrompt();
         CurrentPageIndex = clamped;
         _ = LoadCurrentPageAsync();
         _ = SaveProgressAsync();
+    }
+
+    private void ShowNextSeriesBookPrompt()
+    {
+        UpdateNextSeriesBook();
+        if (_nextSeriesBook is null)
+        {
+            return;
+        }
+
+        _isNextSeriesBookPromptVisible = true;
+        _nextSeriesBookActionLabel = BuildNextSeriesBookActionLabel(_nextSeriesBook);
+        NotifyNextSeriesBookPromptProps();
+    }
+
+    private void HideNextSeriesBookPrompt()
+    {
+        if (!_isNextSeriesBookPromptVisible && string.IsNullOrEmpty(_nextSeriesBookActionLabel))
+        {
+            return;
+        }
+
+        _isNextSeriesBookPromptVisible = false;
+        _nextSeriesBookActionLabel = "";
+        NotifyNextSeriesBookPromptProps();
+    }
+
+    private void OpenNextSeriesBook()
+    {
+        var nextBook = _nextSeriesBook;
+        if (nextBook is null)
+        {
+            return;
+        }
+
+        HideNextSeriesBookPrompt();
+        OpenBook(nextBook);
+    }
+
+    private void UpdateNextSeriesBook()
+    {
+        _nextSeriesBook = FindNextSeriesBook();
+        if (_nextSeriesBook is null)
+        {
+            HideNextSeriesBookPrompt();
+        }
+
+        RefreshAllNavCanExecute();
+    }
+
+    private ComicBookListItemViewModel? FindNextSeriesBook()
+    {
+        var current = SelectedBook;
+        if (current is null || string.IsNullOrWhiteSpace(current.SeriesName))
+        {
+            return null;
+        }
+
+        var seriesBooks = SortSeriesBooks(_allBooks
+            .Where(book => book.ComicBook.Id != current.ComicBook.Id
+                && book.SeriesName is not null
+                && book.SeriesName.Equals(current.SeriesName, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+
+        if (current.IssueNumber.HasValue)
+        {
+            return seriesBooks.FirstOrDefault(book =>
+                book.IssueNumber.HasValue && book.IssueNumber.Value > current.IssueNumber.Value);
+        }
+
+        var orderedSeries = SortSeriesBooks(_allBooks
+            .Where(book => book.SeriesName is not null
+                && book.SeriesName.Equals(current.SeriesName, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+        var currentIndex = Array.FindIndex(orderedSeries, book => book.ComicBook.Id == current.ComicBook.Id);
+        return currentIndex >= 0 && currentIndex + 1 < orderedSeries.Length
+            ? orderedSeries[currentIndex + 1]
+            : null;
+    }
+
+    private string BuildNextSeriesBookActionLabel(ComicBookListItemViewModel nextBook)
+    {
+        var currentIssue = SelectedBook?.IssueNumber;
+        if (currentIssue.HasValue && nextBook.IssueNumber == currentIssue.Value + 1)
+        {
+            return "\u0427\u0438\u0442\u0430\u0442\u044c \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0443\u044e";
+        }
+
+        return nextBook.IssueNumber.HasValue
+            ? $"\u041f\u0435\u0440\u0435\u0439\u0442\u0438 \u043a {nextBook.IssueNumber.Value} \u0447\u0430\u0441\u0442\u0438"
+            : "\u041e\u0442\u043a\u0440\u044b\u0442\u044c \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0443\u044e \u0447\u0430\u0441\u0442\u044c";
+    }
+
+    private void NotifyNextSeriesBookPromptProps()
+    {
+        RaisePropertyChanged(nameof(HasNextSeriesBookPrompt));
+        RaisePropertyChanged(nameof(NextSeriesBookActionLabel));
+        OpenNextSeriesBookCommand.RaiseCanExecuteChanged();
     }
 
     private async Task LoadCurrentPageAsync()
@@ -1565,6 +1701,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         PageForwardCommand.RaiseCanExecuteChanged();
         GoToFirstPageCommand.RaiseCanExecuteChanged();
         GoToLastPageCommand.RaiseCanExecuteChanged();
+        OpenNextSeriesBookCommand.RaiseCanExecuteChanged();
     }
 
     private void NotifyAllSortProps()
