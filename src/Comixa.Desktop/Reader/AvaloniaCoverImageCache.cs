@@ -43,10 +43,6 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache
         }
 
         var thumbnail = await Task.Run(() => CreateThumbnail(fullPage, 200, 300), cancellationToken);
-        if (!ReferenceEquals(thumbnail, fullPage))
-        {
-            fullPage.Dispose();
-        }
 
         try
         {
@@ -64,7 +60,7 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache
     {
         if (source.PixelSize.Width <= maxWidth && source.PixelSize.Height <= maxHeight)
         {
-            return source;
+            return source.CreateScaledBitmap(source.PixelSize, BitmapInterpolationMode.LowQuality);
         }
 
         var scaleX = (double)maxWidth / source.PixelSize.Width;

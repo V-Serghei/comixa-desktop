@@ -5,6 +5,7 @@ namespace Comixa.Desktop.ViewModels;
 
 public sealed class ComicBookListItemViewModel : ViewModelBase
 {
+    private readonly string _searchText;
     private Bitmap? _coverImage;
     private ReadingProgress? _progress;
 
@@ -17,6 +18,7 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
         Format = comicBook.Format.ToString().ToUpperInvariant();
         PageCount = comicBook.PageCount;
         FilePath = comicBook.FilePath;
+        _searchText = $"{Title}\n{SeriesName}\n{FilePath}".ToUpperInvariant();
     }
 
     public ComicBook ComicBook { get; }
@@ -53,8 +55,8 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
     public string IssueLabel => IssueNumber is null ? "" : $"#{IssueNumber}";
 
     public string Metadata => IssueNumber is null
-        ? $"{Format} · {PageLabel}"
-        : $"{Format} · #{IssueNumber} · {PageLabel}";
+        ? $"{Format} - {PageLabel}"
+        : $"{Format} - #{IssueNumber} - {PageLabel}";
 
     public string ReadStatusLabel
     {
@@ -62,12 +64,17 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
         {
             if (_progress is null) return "";
             if (_progress.PageNumber == 0) return "Started";
-            if (PageCount > 0 && _progress.PageNumber >= PageCount - 1) return "Read ✓";
+            if (PageCount > 0 && _progress.PageNumber >= PageCount - 1) return "Read";
             return $"Page {_progress.PageNumber + 1} of {PageCount}";
         }
     }
 
     private string PageLabel => PageCount == 0 ? "? pages" : $"{PageCount} pages";
+
+    public bool MatchesSearch(string normalizedQuery)
+    {
+        return normalizedQuery.Length == 0 || _searchText.Contains(normalizedQuery, StringComparison.Ordinal);
+    }
 
     public void SetCoverImage(Bitmap? coverImage) => CoverImage = coverImage;
 

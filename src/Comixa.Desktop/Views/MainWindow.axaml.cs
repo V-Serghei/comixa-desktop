@@ -126,4 +126,14 @@ public sealed partial class MainWindow : Window
             _isApplyingReaderFullscreen = false;
         }
     }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        if (DataContext is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+
+        base.OnClosed(e);
+    }
 }

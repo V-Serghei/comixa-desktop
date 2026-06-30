@@ -34,38 +34,41 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
         ".tiff"
     };
 
-    public Task<IReadOnlyList<ScannedComicFile>> ScanAsync(string rootFolder, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ScannedComicFile>> ScanAsync(string rootFolder, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootFolder);
 
         if (!Directory.Exists(rootFolder))
         {
-            return Task.FromResult<IReadOnlyList<ScannedComicFile>>(Array.Empty<ScannedComicFile>());
+            return Array.Empty<ScannedComicFile>();
         }
 
-        var files = new List<ScannedComicFile>();
-
-        foreach (var filePath in EnumerateFiles(rootFolder, cancellationToken))
+        return await Task.Run(() =>
         {
-            var scannedFile = TryCreateScannedFile(filePath, cancellationToken);
-            if (scannedFile is not null)
+            var files = new List<ScannedComicFile>();
+
+            foreach (var filePath in EnumerateFiles(rootFolder, cancellationToken))
             {
-                files.Add(scannedFile);
+                var scannedFile = TryCreateScannedFile(filePath, cancellationToken);
+                if (scannedFile is not null)
+                {
+                    files.Add(scannedFile);
+                }
             }
-        }
 
-        foreach (var directoryPath in EnumerateDirectories(rootFolder, cancellationToken))
-        {
-            var imageFolder = TryCreateImageFolder(directoryPath, cancellationToken);
-            if (imageFolder is not null)
+            foreach (var directoryPath in EnumerateDirectories(rootFolder, cancellationToken))
             {
-                files.Add(imageFolder);
+                var imageFolder = TryCreateImageFolder(directoryPath, cancellationToken);
+                if (imageFolder is not null)
+                {
+                    files.Add(imageFolder);
+                }
             }
-        }
 
-        files.Sort((left, right) => string.Compare(left.FilePath, right.FilePath, StringComparison.OrdinalIgnoreCase));
+            files.Sort((left, right) => string.Compare(left.FilePath, right.FilePath, StringComparison.OrdinalIgnoreCase));
 
-        return Task.FromResult<IReadOnlyList<ScannedComicFile>>(files);
+            return (IReadOnlyList<ScannedComicFile>)files;
+        }, cancellationToken);
     }
 
     public static bool IsImageFile(string path)

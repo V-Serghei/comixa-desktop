@@ -13,7 +13,7 @@ using Comixa.Reader.Scanning;
 
 namespace Comixa.Desktop.ViewModels;
 
-public sealed class MainWindowViewModel : ViewModelBase
+public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 {
     private readonly IFolderPicker _folderPicker;
     private readonly IComicLibraryScanner _comicLibraryScanner;
@@ -38,6 +38,7 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     // Library filter state
     private string _searchQuery = "";
+    private string _normalizedSearchQuery = "";
     private SortOrder _sortOrder = SortOrder.TitleAsc;
     private bool _showUnreadOnly;
     private ComicFormat? _formatFilter;
@@ -84,6 +85,8 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     private CancellationTokenSource? _verticalPagesCts;
     private CancellationTokenSource? _currentPageCts;
+    private CancellationTokenSource? _bookPreloadCts;
+    private CancellationTokenSource? _coverLoadCts;
     private int _currentPageLoadVersion;
     private SingleLibraryItemViewModel? _openSingleItem;
 
@@ -261,13 +264,14 @@ public sealed class MainWindowViewModel : ViewModelBase
         {
             if (_searchQuery == value) return;
             _searchQuery = value;
+            _normalizedSearchQuery = value.Trim().ToUpperInvariant();
             RaisePropertyChanged();
             RaisePropertyChanged(nameof(HasSearchQuery));
             RefreshDisplayedItems();
         }
     }
 
-    public bool HasSearchQuery => !string.IsNullOrEmpty(_searchQuery);
+    public bool HasSearchQuery => _normalizedSearchQuery.Length > 0;
     public bool ShowUnreadOnly => _showUnreadOnly;
     public bool IsCbzFilterActive => _formatFilter == ComicFormat.Cbz;
     public bool IsZipFilterActive => _formatFilter == ComicFormat.Zip;
@@ -378,6 +382,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         private set
         {
             if (_selectedBook == value) return;
+            CancelBookPreload();
             _selectedBook = value;
             CurrentPageIndex = GetInitialPageIndex(value);
             RaisePropertyChanged();
@@ -840,12 +845,9 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         IEnumerable<ComicBookListItemViewModel> filtered = _allBooks;
 
-        if (!string.IsNullOrWhiteSpace(_searchQuery))
+        if (_normalizedSearchQuery.Length > 0)
         {
-            var q = _searchQuery;
-            filtered = filtered.Where(b =>
-                b.Title.Contains(q, StringComparison.OrdinalIgnoreCase) ||
-                (b.SeriesName?.Contains(q, StringComparison.OrdinalIgnoreCase) == true));
+            filtered = filtered.Where(b => b.MatchesSearch(_normalizedSearchQuery));
         }
 
         if (_showUnreadOnly)
@@ -1289,6 +1291,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         }
 
         var book = SelectedBook.ComicBook;
+        SetActivePageWindow(book);
         if (book.Format is ComicFormat.Cbr or ComicFormat.Rar or ComicFormat.SevenZip or ComicFormat.Epub)
         {
             NextPageImage = null;
@@ -1321,7 +1324,7 @@ public sealed class MainWindowViewModel : ViewModelBase
                     _ = LoadNextPageImageAsync(book, CurrentPageIndex, loadVersion, cts.Token);
                 }
 
-                _ = PrefetchAdjacentPagesAsync(book, CurrentPageIndex);
+                StartBookPreload(book, CurrentPageIndex);
             }
         }
         catch (OperationCanceledException)
@@ -1367,26 +1370,49 @@ public sealed class MainWindowViewModel : ViewModelBase
         catch (OperationCanceledException) { }
     }
 
-    private async Task PrefetchAdjacentPagesAsync(ComicBook book, int pageIndex)
+    private void StartBookPreload(ComicBook book, int pageIndex)
     {
-        try
+        CancelBookPreload();
+        if (_pagePreviewLoader is not IPageCacheMaintenance maintenance)
         {
-            var pageCount = book.PageCount;
-            int[] pageIndexes = _isTwoPageMode
-                ? [pageIndex + 1, pageIndex + 2, pageIndex - 1, pageIndex - 2]
-                : [pageIndex + 1, pageIndex - 1];
+            return;
+        }
 
-            foreach (var index in pageIndexes)
+        _bookPreloadCts = new CancellationTokenSource();
+        var cts = _bookPreloadCts;
+        var token = cts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
             {
-                if (index < 0 || index >= pageCount)
+                await maintenance.PreloadPagesAsync(book, pageIndex, token);
+            }
+            catch (OperationCanceledException) { }
+            finally
+            {
+                if (ReferenceEquals(_bookPreloadCts, cts))
                 {
-                    continue;
+                    _bookPreloadCts = null;
                 }
 
-                await _pagePreviewLoader.LoadPageAsync(book, index, CancellationToken.None);
+                cts.Dispose();
             }
+        });
+    }
+
+    private void SetActivePageWindow(ComicBook book)
+    {
+        if (_pagePreviewLoader is IPageCacheMaintenance maintenance)
+        {
+            maintenance.SetActivePageWindow(book, CurrentPageIndex, _isTwoPageMode && !IsVerticalMode ? 2 : 1);
         }
-        catch (OperationCanceledException) { }
+    }
+
+    private void CancelBookPreload()
+    {
+        _bookPreloadCts?.Cancel();
+        _bookPreloadCts = null;
     }
 
     private async Task LoadVerticalPagesAsync(ComicBook comicBook)
@@ -1398,16 +1424,22 @@ public sealed class MainWindowViewModel : ViewModelBase
         VerticalPages.Clear();
         IsPageLoading = true;
         ReaderStatus = $"Loading {comicBook.Title}...";
+        if (_pagePreviewLoader is IPageCacheMaintenance maintenance)
+        {
+            maintenance.SetActivePageWindow(comicBook, 0, comicBook.PageCount);
+        }
 
         try
         {
-            var pages = await _pagePreviewLoader.LoadPagesAsync(comicBook, cts.Token);
-            if (cts.IsCancellationRequested) return;
-
-            foreach (var page in pages)
+            for (var index = 0; index < comicBook.PageCount; index++)
             {
-                if (cts.IsCancellationRequested) break;
-                VerticalPages.Add(page);
+                cts.Token.ThrowIfCancellationRequested();
+
+                var page = await _pagePreviewLoader.LoadPageAsync(comicBook, index, cts.Token);
+                if (page is not null)
+                {
+                    VerticalPages.Add(page);
+                }
             }
 
             ReaderStatus = comicBook.Title;
@@ -1421,21 +1453,48 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     private async Task LoadCoversAsync()
     {
-        var semaphore = new SemaphoreSlim(4);
-        var tasks = _allBooks.ToList().Select(async book =>
+        _coverLoadCts?.Cancel();
+        _coverLoadCts = new CancellationTokenSource();
+        var cts = _coverLoadCts;
+        var concurrency = Math.Clamp(Environment.ProcessorCount / 2, 2, 6);
+        using var semaphore = new SemaphoreSlim(concurrency);
+        var books = _allBooks.Where(book => !book.HasCoverImage).ToArray();
+        var tasks = books.Select(async book =>
         {
-            await semaphore.WaitAsync();
+            await semaphore.WaitAsync(cts.Token);
             try
             {
-                var cover = await _coverImageCache.LoadCoverAsync(book.ComicBook);
+                var cover = await _coverImageCache.LoadCoverAsync(book.ComicBook, cts.Token);
+                if (cts.IsCancellationRequested)
+                {
+                    return;
+                }
+
                 book.SetCoverImage(cover);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
             }
             finally
             {
                 semaphore.Release();
             }
         });
-        await Task.WhenAll(tasks);
+
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            if (ReferenceEquals(_coverLoadCts, cts))
+            {
+                _coverLoadCts = null;
+            }
+
+            cts.Dispose();
+        }
     }
 
     private async Task SaveProgressAsync()
@@ -1447,6 +1506,33 @@ public sealed class MainWindowViewModel : ViewModelBase
         await Task.Run(() => _progressRepository.SaveAsync(progress));
         selectedBook.SetProgress(progress);
         _progressMap[progress.ComicBookId] = progress;
+    }
+
+    public void Dispose()
+    {
+        _currentPageCts?.Cancel();
+        _verticalPagesCts?.Cancel();
+        _coverLoadCts?.Cancel();
+        CancelBookPreload();
+
+        CurrentPageImage = null;
+        NextPageImage = null;
+        VerticalPages.Clear();
+
+        foreach (var book in _allBooks)
+        {
+            book.CoverImage?.Dispose();
+            book.SetCoverImage(null);
+        }
+
+        if (_pagePreviewLoader is IDisposable disposableLoader)
+        {
+            disposableLoader.Dispose();
+        }
+        else if (_pagePreviewLoader is IPageCacheMaintenance maintenance)
+        {
+            maintenance.ClearAllPages();
+        }
     }
 
     // --- Notification helpers ---
