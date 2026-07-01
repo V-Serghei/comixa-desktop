@@ -21,7 +21,9 @@
             <MenuItem Header="Mark as Read" Command="{Binding MarkAsReadCommand}" />
             <MenuItem Header="Mark as Unread" Command="{Binding MarkAsUnreadCommand}" />
             <Separator />
-            <MenuItem Header="Add to shelf..." ItemsSource="{Binding ShelfItems}">
+            <MenuItem Header="Add to shelf..."
+                      ItemsSource="{Binding ShelfItems}"
+                      IsVisible="{Binding HasShelfItems}">
               <MenuItem.ItemContainerTheme>
                 <ControlTheme TargetType="MenuItem">
                   <Setter Property="Header" Value="{ReflectionBinding MenuText}" />
@@ -29,6 +31,11 @@
                 </ControlTheme>
               </MenuItem.ItemContainerTheme>
             </MenuItem>
+            <MenuItem Header="No shelves yet"
+                      IsVisible="{Binding !HasShelfItems}"
+                      IsEnabled="False" />
+            <MenuItem Header="New shelf..."
+                      Command="{Binding CreateShelfCommand}" />
           </ContextMenu>
         </Button.ContextMenu>
 

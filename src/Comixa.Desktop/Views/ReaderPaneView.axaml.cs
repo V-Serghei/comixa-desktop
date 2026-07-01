@@ -12,12 +12,22 @@ namespace Comixa.Desktop.Views;
 public sealed partial class ReaderPaneView : UserControl
 {
     private const double ClickEdgeRatio = 0.24;
-    private const double SwipeThreshold = 80;
+    private const double ClickMaxDistance = 10;
+    private const double PanStartDistance = 8;
+    private const double SwipeThreshold = 90;
+    private const double SwipeVelocityThreshold = 780;
+    private static readonly TimeSpan ClickMaxDuration = TimeSpan.FromMilliseconds(280);
+    private static readonly TimeSpan SwipeMaxDuration = TimeSpan.FromMilliseconds(460);
 
     private Point? _pressPoint;
+    private Vector _panStartOffset;
+    private Vector _panOffset;
+    private DateTimeOffset _pressStartedAt;
     private bool _isLeftPress;
-    private bool _didSwipe;
+    private bool _isPanning;
+    private bool _hasMovedBeyondClick;
     private readonly TranslateTransform _pageAnimationTransform = new();
+    private readonly TranslateTransform _pagePanTransform = new();
     private CancellationTokenSource? _pageAnimationCts;
     private MainWindowViewModel? _viewModel;
     private int _lastAnimatedPageIndex;
@@ -46,6 +56,7 @@ public sealed partial class ReaderPaneView : UserControl
             RoutingStrategies.Bubble,
             handledEventsToo: false);
         ReaderPageHost.RenderTransform = _pageAnimationTransform;
+        FitPageSurface.RenderTransform = _pagePanTransform;
         DataContextChanged += OnDataContextChanged;
     }
 
@@ -64,6 +75,7 @@ public sealed partial class ReaderPaneView : UserControl
         if (e.KeyModifiers.HasFlag(KeyModifiers.Control) || vm.ReaderWheelAction == ReaderWheelAction.Zoom)
         {
             vm.AdjustReaderZoom(e.Delta.Y);
+            ClampPanOffset();
             e.Handled = true;
             return;
         }
@@ -83,8 +95,11 @@ public sealed partial class ReaderPaneView : UserControl
         }
 
         _pressPoint = e.GetPosition(ReaderPageHost);
+        _panStartOffset = _panOffset;
+        _pressStartedAt = DateTimeOffset.UtcNow;
         _isLeftPress = true;
-        _didSwipe = false;
+        _isPanning = false;
+        _hasMovedBeyondClick = false;
         e.Pointer.Capture(ReaderPageHost);
     }
 
@@ -98,21 +113,21 @@ public sealed partial class ReaderPaneView : UserControl
         var current = e.GetPosition(ReaderPageHost);
         var deltaX = current.X - _pressPoint.Value.X;
         var deltaY = current.Y - _pressPoint.Value.Y;
+        var totalDelta = new Vector(deltaX, deltaY);
+        var distance = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
 
-        if (Math.Abs(deltaX) < SwipeThreshold || Math.Abs(deltaX) < Math.Abs(deltaY) * 1.25)
+        if (distance > ClickMaxDistance)
+        {
+            _hasMovedBeyondClick = true;
+        }
+
+        if (!CanPanReader(vm) || distance < PanStartDistance)
         {
             return;
         }
 
-        if (!vm.IsDragPageTurnEnabled)
-        {
-            return;
-        }
-
-        vm.TurnPageFromSwipe(deltaX);
-        _didSwipe = true;
-        _isLeftPress = false;
-        e.Pointer.Capture(null);
+        _isPanning = true;
+        SetPanOffset(_panStartOffset + totalDelta);
         e.Handled = true;
     }
 
@@ -126,8 +141,29 @@ public sealed partial class ReaderPaneView : UserControl
 
         var releasePoint = e.GetPosition(ReaderPageHost);
         var delta = releasePoint - _pressPoint.Value;
+        var duration = DateTimeOffset.UtcNow - _pressStartedAt;
 
-        if (!_didSwipe && vm.IsEdgePageTurnEnabled && Math.Abs(delta.X) < 12 && Math.Abs(delta.Y) < 12)
+        if (vm.IsDragPageTurnEnabled && IsSwipe(delta, duration))
+        {
+            ResetPanOffset();
+            vm.TurnPageFromSwipe(delta.X);
+            e.Handled = true;
+            ResetPointerState(e);
+            return;
+        }
+
+        if (_isPanning)
+        {
+            e.Handled = true;
+            ResetPointerState(e);
+            return;
+        }
+
+        if (!_hasMovedBeyondClick &&
+            duration <= ClickMaxDuration &&
+            vm.IsEdgePageTurnEnabled &&
+            Math.Abs(delta.X) < ClickMaxDistance &&
+            Math.Abs(delta.Y) < ClickMaxDistance)
         {
             var width = ReaderPageHost.Bounds.Width;
 
@@ -152,7 +188,7 @@ public sealed partial class ReaderPaneView : UserControl
             !vm.HasSelectedBook ||
             vm.IsVerticalMode ||
             vm.IsSettingsPanelVisible ||
-            (!vm.IsEdgePageTurnEnabled && !vm.IsDragPageTurnEnabled))
+            vm.IsReaderSettingsPanelVisible)
         {
             return false;
         }
@@ -177,12 +213,25 @@ public sealed partial class ReaderPaneView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(MainWindowViewModel.CurrentPageIndex) ||
-            sender is not MainWindowViewModel vm)
+        if (sender is not MainWindowViewModel vm)
         {
             return;
         }
 
+        if (e.PropertyName is nameof(MainWindowViewModel.ReaderZoom)
+            or nameof(MainWindowViewModel.IsFitPageMode)
+            or nameof(MainWindowViewModel.IsTwoPageMode))
+        {
+            ClampPanOffset();
+            return;
+        }
+
+        if (e.PropertyName != nameof(MainWindowViewModel.CurrentPageIndex))
+        {
+            return;
+        }
+
+        ResetPanOffset();
         var direction = vm.CurrentPageIndex >= _lastAnimatedPageIndex ? 1 : -1;
         _lastAnimatedPageIndex = vm.CurrentPageIndex;
         PlayPageAnimation(vm.ReaderPageAnimation, direction);
@@ -245,8 +294,67 @@ public sealed partial class ReaderPaneView : UserControl
     private void ResetPointerState(PointerEventArgs e)
     {
         _pressPoint = null;
+        _panStartOffset = _panOffset;
         _isLeftPress = false;
-        _didSwipe = false;
+        _isPanning = false;
+        _hasMovedBeyondClick = false;
         e.Pointer.Capture(null);
+    }
+
+    private bool CanPanReader(MainWindowViewModel vm)
+    {
+        return vm.IsFitPageMode && vm.ReaderZoom > 1.001;
+    }
+
+    private static bool IsSwipe(Vector delta, TimeSpan duration)
+    {
+        if (Math.Abs(delta.X) < SwipeThreshold || Math.Abs(delta.X) < Math.Abs(delta.Y) * 1.35)
+        {
+            return false;
+        }
+
+        var seconds = Math.Max(duration.TotalSeconds, 0.001);
+        var velocity = Math.Abs(delta.X) / seconds;
+        return duration <= SwipeMaxDuration || velocity >= SwipeVelocityThreshold;
+    }
+
+    private void ClampPanOffset()
+    {
+        if (DataContext is not MainWindowViewModel vm || !CanPanReader(vm))
+        {
+            ResetPanOffset();
+            return;
+        }
+
+        SetPanOffset(_panOffset);
+    }
+
+    private void SetPanOffset(Vector offset)
+    {
+        if (DataContext is not MainWindowViewModel vm || !CanPanReader(vm))
+        {
+            offset = new Vector(0, 0);
+        }
+        else
+        {
+            var zoomOverflow = Math.Max(0, vm.ReaderZoom - 1);
+            var maxX = ReaderPageHost.Bounds.Width * zoomOverflow / 2;
+            var maxY = ReaderPageHost.Bounds.Height * zoomOverflow / 2;
+            offset = new Vector(
+                Math.Clamp(offset.X, -maxX, maxX),
+                Math.Clamp(offset.Y, -maxY, maxY));
+        }
+
+        _panOffset = offset;
+        _pagePanTransform.X = offset.X;
+        _pagePanTransform.Y = offset.Y;
+    }
+
+    private void ResetPanOffset()
+    {
+        _panOffset = new Vector(0, 0);
+        _panStartOffset = _panOffset;
+        _pagePanTransform.X = 0;
+        _pagePanTransform.Y = 0;
     }
 }

@@ -6,7 +6,7 @@
              x:DataType="vm:MainWindowViewModel"
              x:CompileBindings="False">
   <Grid x:Name="ReaderGrid">
-    <Border IsVisible="{Binding IsSettingsPanelVisible}"
+    <Border IsVisible="{Binding IsReaderSettingsPanelVisible}"
             Background="{DynamicResource ComixaSurfaceBrush}">
       <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="24"
@@ -14,36 +14,10 @@
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
                     Margin="40">
-          <TextBlock Text="Settings"
+          <TextBlock Text="Reader Settings"
                      FontSize="22"
                      FontWeight="SemiBold"
                      Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
-
-          <StackPanel Spacing="10">
-            <TextBlock Text="GLOBAL SETTINGS"
-                       FontSize="10"
-                       FontWeight="SemiBold"
-                       LetterSpacing="1.2"
-                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
-            <WrapPanel>
-              <ToggleButton Content="Continue where left off"
-                            Margin="0,0,6,6"
-                            IsChecked="{Binding OpenComicsAtLastPosition, Mode=OneWay}"
-                            Command="{Binding ToggleOpenComicsAtLastPositionCommand}" />
-              <ToggleButton Content="Open fullscreen"
-                            Margin="0,0,6,6"
-                            IsChecked="{Binding OpenComicsInFullscreen, Mode=OneWay}"
-                            Command="{Binding ToggleOpenComicsInFullscreenCommand}" />
-              <ToggleButton Content="Right preview pane"
-                            Margin="0,0,6,6"
-                            IsChecked="{Binding IsReaderPreviewPaneEnabled, Mode=OneWay}"
-                            Command="{Binding ToggleReaderPreviewPaneCommand}" />
-              <ToggleButton Content="Dark theme"
-                            Margin="0,0,6,6"
-                            IsChecked="{Binding IsDarkTheme, Mode=OneWay}"
-                            Command="{Binding ToggleThemeCommand}" />
-            </WrapPanel>
-          </StackPanel>
 
           <StackPanel Spacing="10">
             <TextBlock Text="READING DIRECTION"
@@ -195,7 +169,7 @@
           </StackPanel>
 
           <Button Content="Close Settings"
-                  Command="{Binding ToggleSettingsPanelCommand}"
+                  Command="{Binding ToggleReaderSettingsPanelCommand}"
                   Background="{DynamicResource ComixaPrimaryBrush}"
                   Foreground="#001B12" />
         </StackPanel>
@@ -203,10 +177,10 @@
     </Border>
 
     <Grid RowDefinitions="Auto,*,Auto"
-          IsVisible="{Binding !IsSettingsPanelVisible}"
+          IsVisible="{Binding !IsReaderSettingsPanelVisible}"
           Background="{Binding ReaderBackgroundBrush}">
       <Border Padding="12,7" Background="#DD000000">
-        <Grid ColumnDefinitions="*,Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto">
           <TextBlock Text="{Binding ReaderStatus}"
                      Foreground="White"
                      FontWeight="SemiBold"
@@ -220,7 +194,17 @@
                        Margin="8,0"
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ComixaPrimaryBrush}" />
-          <TextBlock Grid.Column="2"
+          <Button Grid.Column="2"
+                  Content="⚙"
+                  Command="{Binding ToggleReaderSettingsPanelCommand}"
+                  IsVisible="{Binding HasSelectedBook}"
+                  Classes="readerButton"
+                  ToolTip.Tip="Reader settings"
+                  Width="32"
+                  Height="28"
+                  Padding="0"
+                  Margin="6,0" />
+          <TextBlock Grid.Column="3"
                      Text="{Binding CurrentPageLabel}"
                      Foreground="#D0FFFFFF"
                      VerticalAlignment="Center"
@@ -236,7 +220,7 @@
         <Grid IsVisible="{Binding IsFitPageMode}"
               ClipToBounds="True"
               Margin="20">
-          <Grid>
+          <Grid x:Name="FitPageSurface">
             <Viewbox IsVisible="{Binding IsSinglePageVisible}"
                      Stretch="Uniform"
                      RenderTransformOrigin="0.5,0.5">

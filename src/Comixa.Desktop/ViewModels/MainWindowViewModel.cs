@@ -55,6 +55,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     // Settings state
     private bool _isSettingsPanelVisible;
+    private bool _isReaderSettingsPanelVisible;
     private bool _isDarkTheme = true;
     private ReadingDirection _readingDirection = ReadingDirection.LeftToRight;
     private FitMode _fitMode = FitMode.FitPage;
@@ -166,6 +167,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
                   CurrentPageIndex < (SelectedBook?.ComicBook.PageCount ?? 1) - 1);
 
         ToggleSettingsPanelCommand = new RelayCommand(ToggleSettingsPanel);
+        ToggleReaderSettingsPanelCommand = new RelayCommand(ToggleReaderSettingsPanel);
         ToggleFitModeCommand = new RelayCommand(ToggleFitMode);
         ToggleReaderFullscreenCommand = new RelayCommand(ToggleReaderFullscreen);
         ToggleOpenComicsAtLastPositionCommand = new RelayCommand(ToggleOpenComicsAtLastPosition);
@@ -188,11 +190,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         ToggleThemeCommand = new RelayCommand(ToggleTheme);
         ClearSearchCommand = new RelayCommand(() => SearchQuery = "");
 
-        StartCreateShelfCommand = new RelayCommand(() =>
-        {
-            _isCreatingShelf = true;
-            RaisePropertyChanged(nameof(IsCreatingShelf));
-        });
+        StartCreateShelfCommand = new RelayCommand(StartCreatingShelf);
         ConfirmNewShelfCommand = new AsyncRelayCommand(CreateShelfAsync);
         CancelNewShelfCommand = new RelayCommand(() =>
         {
@@ -235,6 +233,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public RelayCommand GoToLastPageCommand { get; }
     public RelayCommand ToggleFitModeCommand { get; }
     public RelayCommand ToggleReaderFullscreenCommand { get; }
+    public RelayCommand ToggleReaderSettingsPanelCommand { get; }
     public RelayCommand ToggleOpenComicsAtLastPositionCommand { get; }
     public RelayCommand ToggleOpenComicsInFullscreenCommand { get; }
     public RelayCommand ToggleReaderPreviewPaneCommand { get; }
@@ -381,6 +380,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     // Settings state
     public bool IsSettingsPanelVisible => _isSettingsPanelVisible;
+    public bool IsReaderSettingsPanelVisible => _isReaderSettingsPanelVisible;
     public bool IsDarkTheme => _isDarkTheme;
     public bool IsLightTheme => !_isDarkTheme;
     public string ThemeToggleLabel => _isDarkTheme ? "Light" : "Dark";
@@ -807,6 +807,12 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         RefreshDisplayedItems();
     }
 
+    private void StartCreatingShelf()
+    {
+        _isCreatingShelf = true;
+        RaisePropertyChanged(nameof(IsCreatingShelf));
+    }
+
     private async void ToggleBookInShelf(Guid shelfId, Guid bookId, bool addToShelf)
     {
         if (addToShelf)
@@ -930,6 +936,12 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         {
             _isSettingsPanelVisible = false;
             RaisePropertyChanged(nameof(IsSettingsPanelVisible));
+        }
+
+        if (_isReaderSettingsPanelVisible)
+        {
+            _isReaderSettingsPanelVisible = false;
+            RaisePropertyChanged(nameof(IsReaderSettingsPanelVisible));
         }
 
         if (_openSingleItem is not null)
@@ -1089,7 +1101,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         foreach (var group in groups)
         {
             var list = SortSeriesBooks(group.Books).ToList();
-            if (!group.Key.StartsWith(noSeriesPrefix) && list.Count >= 2)
+            var hasSeriesName = !group.Key.StartsWith(noSeriesPrefix);
+            if (hasSeriesName && (list.Count >= 2 || _isSeriesView))
             {
                 result.Add(new SeriesLibraryItemViewModel(group.Key, list, OpenSeries));
             }
@@ -1105,6 +1118,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
                         book => OpenBookFullscreen(book),
                         MarkBookAsRead,
                         MarkBookAsUnread,
+                        StartCreatingShelf,
                         BuildShelfMenuItems(b.ComicBook.Id)));
             }
         }
@@ -1177,7 +1191,25 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private void ToggleSettingsPanel()
     {
         _isSettingsPanelVisible = !_isSettingsPanelVisible;
+        if (_isSettingsPanelVisible && _isReaderSettingsPanelVisible)
+        {
+            _isReaderSettingsPanelVisible = false;
+            RaisePropertyChanged(nameof(IsReaderSettingsPanelVisible));
+        }
+
         RaisePropertyChanged(nameof(IsSettingsPanelVisible));
+    }
+
+    private void ToggleReaderSettingsPanel()
+    {
+        _isReaderSettingsPanelVisible = !_isReaderSettingsPanelVisible;
+        if (_isReaderSettingsPanelVisible && _isSettingsPanelVisible)
+        {
+            _isSettingsPanelVisible = false;
+            RaisePropertyChanged(nameof(IsSettingsPanelVisible));
+        }
+
+        RaisePropertyChanged(nameof(IsReaderSettingsPanelVisible));
     }
 
     private void ToggleFitMode()
@@ -1498,6 +1530,12 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
         if (delta > 0 && CurrentPageIndex + PageStep >= pageCount)
         {
+            if (HasNextSeriesBookPrompt)
+            {
+                OpenNextSeriesBook();
+                return;
+            }
+
             ShowNextSeriesBookPrompt();
             return;
         }

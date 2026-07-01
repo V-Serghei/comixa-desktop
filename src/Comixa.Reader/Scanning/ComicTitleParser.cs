@@ -8,9 +8,11 @@ public static partial class ComicTitleParser
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
 
-        var raw = Path.GetFileNameWithoutExtension(fileName)
-            .Replace('_', ' ')
-            .Trim();
+        var extension = Path.GetExtension(fileName);
+        var raw = !IsKnownComicExtension(extension)
+            ? fileName
+            : fileName[..^extension.Length];
+        raw = raw.Replace('_', ' ').Trim();
 
         raw = DistributionSuffixRegex().Replace(raw, string.Empty).Trim();
         raw = NormalizeSeparatorStyle(raw);
@@ -127,6 +129,27 @@ public static partial class ComicTitleParser
         return token.Count(c => c == '-') >= 2
             ? token.Replace('-', ' ')
             : token;
+    }
+
+    private static bool IsKnownComicExtension(string extension)
+    {
+        return extension.Equals(".cbz", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".zip", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".cbr", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".rar", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".7z", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".cb7", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".epub", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".png", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".webp", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".avif", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".gif", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".tif", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".tiff", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string BuildDisplayTitle(string cleaned, string seriesName, int? issueNumber, int? volumeNumber)

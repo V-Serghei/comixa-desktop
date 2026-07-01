@@ -81,5 +81,69 @@
             IsVisible="{Binding IsReaderFullscreen}">
       <views:ReaderPaneView />
     </Border>
+
+    <Border Grid.RowSpan="2"
+            IsVisible="{Binding IsSettingsPanelVisible}"
+            Background="#99000000">
+      <Border Width="520"
+              MaxHeight="620"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Padding="28"
+              CornerRadius="8"
+              Background="{DynamicResource ComixaSurfaceBrush}"
+              BorderBrush="{DynamicResource ComixaOutlineBrush}"
+              BorderThickness="1">
+        <StackPanel Spacing="22">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Application Settings"
+                       FontSize="22"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource ComixaOnSurfaceBrush}"
+                       VerticalAlignment="Center" />
+            <Button Grid.Column="1"
+                    Content="Close"
+                    Classes="chromeButton"
+                    Command="{Binding ToggleSettingsPanelCommand}" />
+          </Grid>
+
+          <StackPanel Spacing="10">
+            <TextBlock Text="LIBRARY"
+                       FontSize="10"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.2"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <WrapPanel>
+              <ToggleButton Content="Continue where left off"
+                            Margin="0,0,6,6"
+                            IsChecked="{Binding OpenComicsAtLastPosition, Mode=OneWay}"
+                            Command="{Binding ToggleOpenComicsAtLastPositionCommand}" />
+              <ToggleButton Content="Open comics fullscreen"
+                            Margin="0,0,6,6"
+                            IsChecked="{Binding OpenComicsInFullscreen, Mode=OneWay}"
+                            Command="{Binding ToggleOpenComicsInFullscreenCommand}" />
+              <ToggleButton Content="Right reader preview"
+                            Margin="0,0,6,6"
+                            IsChecked="{Binding IsReaderPreviewPaneEnabled, Mode=OneWay}"
+                            Command="{Binding ToggleReaderPreviewPaneCommand}" />
+            </WrapPanel>
+          </StackPanel>
+
+          <StackPanel Spacing="10">
+            <TextBlock Text="APPEARANCE"
+                       FontSize="10"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.2"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <WrapPanel>
+              <ToggleButton Content="Dark theme"
+                            Margin="0,0,6,6"
+                            IsChecked="{Binding IsDarkTheme, Mode=OneWay}"
+                            Command="{Binding ToggleThemeCommand}" />
+            </WrapPanel>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
   </Grid>
 </Window>

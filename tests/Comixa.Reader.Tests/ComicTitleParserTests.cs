@@ -11,6 +11,7 @@ public sealed class ComicTitleParserTests
     [InlineData("Akira (1988).cbz", "Akira (1988)", "Akira (1988)", null)]
     [InlineData("y-the-last-man v1 ch1 manga.zip", "Y The Last Man Vol. 1 #1", "Y The Last Man", 1)]
     [InlineData("y-the-last-man_v1_ch1_manga-chan.me.zip", "Y The Last Man Vol. 1 #1", "Y The Last Man", 1)]
+    [InlineData("y-the-last-man_v1_ch1_manga-chan.me", "Y The Last Man Vol. 1 #1", "Y The Last Man", 1)]
     [InlineData("release-group-y-the-last-man-v1-ch001.cbz", "Y The Last Man Vol. 1 #1", "Y The Last Man", 1)]
     public void ParseExtractsSeriesAndIssueFromCommonNames(
         string fileName,

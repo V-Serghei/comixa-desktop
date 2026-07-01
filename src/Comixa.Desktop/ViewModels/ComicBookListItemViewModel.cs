@@ -1,5 +1,6 @@
 using Avalonia.Media.Imaging;
 using Comixa.Core.Models;
+using Comixa.Reader.Scanning;
 
 namespace Comixa.Desktop.ViewModels;
 
@@ -98,15 +99,43 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
 
     private static string? ResolveSeriesName(ComicBook comicBook)
     {
-        if (comicBook.IssueNumber is null || !ShouldPreferParentFolder(comicBook))
+        var titleSeries = ResolveSeriesFromTitle(comicBook);
+        var storedSeries = string.IsNullOrWhiteSpace(comicBook.SeriesName)
+            ? null
+            : ComicTitleParser.NormalizeDisplayName(comicBook.SeriesName);
+        var hasUsefulStoredSeries = !string.IsNullOrWhiteSpace(storedSeries) &&
+            !IsGenericLibraryFolderName(storedSeries);
+
+        if (comicBook.IssueNumber is null)
         {
-            return comicBook.SeriesName;
+            return hasUsefulStoredSeries ? storedSeries : titleSeries;
+        }
+
+        if (!ShouldPreferParentFolder(comicBook))
+        {
+            return hasUsefulStoredSeries ? storedSeries : titleSeries;
         }
 
         var parent = Directory.GetParent(comicBook.FilePath);
-        return string.IsNullOrWhiteSpace(parent?.Name)
-            ? comicBook.SeriesName
-            : parent.Name;
+        if (!string.IsNullOrWhiteSpace(parent?.Name) && !IsGenericLibraryFolderName(parent.Name))
+        {
+            return ComicTitleParser.NormalizeDisplayName(parent.Name);
+        }
+
+        return titleSeries ?? (hasUsefulStoredSeries ? storedSeries : null);
+    }
+
+    private static string? ResolveSeriesFromTitle(ComicBook comicBook)
+    {
+        if (string.IsNullOrWhiteSpace(comicBook.Title))
+        {
+            return null;
+        }
+
+        var parsed = ComicTitleParser.Parse(comicBook.Title);
+        return parsed.IssueNumber is null || string.IsNullOrWhiteSpace(parsed.SeriesName)
+            ? null
+            : parsed.SeriesName;
     }
 
     private static bool ShouldPreferParentFolder(ComicBook comicBook)
@@ -150,5 +179,18 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
     private static bool IsIssueSeparator(char value)
     {
         return char.IsWhiteSpace(value) || value is '-' or '_' or '.' or ',';
+    }
+
+    private static bool IsGenericLibraryFolderName(string folderName)
+    {
+        var normalized = ComicTitleParser.NormalizeDisplayName(folderName);
+        return normalized.Equals("Com", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Comic", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Comics", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Manga", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Library", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Books", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Downloads", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Desktop", StringComparison.OrdinalIgnoreCase);
     }
 }

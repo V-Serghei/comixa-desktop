@@ -17,6 +17,7 @@ public sealed class SingleLibraryItemViewModel : LibraryItemViewModel
         Action<ComicBookListItemViewModel> onOpenFullscreen,
         Action<ComicBookListItemViewModel> onMarkAsRead,
         Action<ComicBookListItemViewModel> onMarkAsUnread,
+        Action onCreateShelf,
         IReadOnlyList<ShelfMenuItemViewModel> shelfItems)
     {
         Item = item;
@@ -24,6 +25,7 @@ public sealed class SingleLibraryItemViewModel : LibraryItemViewModel
         OpenFullscreenCommand = new RelayCommand(() => onOpenFullscreen(item));
         MarkAsReadCommand = new RelayCommand(() => onMarkAsRead(item));
         MarkAsUnreadCommand = new RelayCommand(() => onMarkAsUnread(item));
+        CreateShelfCommand = new RelayCommand(onCreateShelf);
         ShelfItems = shelfItems;
     }
 
@@ -32,7 +34,9 @@ public sealed class SingleLibraryItemViewModel : LibraryItemViewModel
     public RelayCommand OpenFullscreenCommand { get; }
     public RelayCommand MarkAsReadCommand { get; }
     public RelayCommand MarkAsUnreadCommand { get; }
+    public RelayCommand CreateShelfCommand { get; }
     public IReadOnlyList<ShelfMenuItemViewModel> ShelfItems { get; }
+    public bool HasShelfItems => ShelfItems.Count > 0;
 
     public bool IsCurrentlyOpen
     {
