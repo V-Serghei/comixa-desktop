@@ -382,6 +382,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public bool IsSettingsPanelVisible => _isSettingsPanelVisible;
     public bool IsDarkTheme => _isDarkTheme;
     public bool IsLightTheme => !_isDarkTheme;
+    public string ThemeToggleLabel => _isDarkTheme ? "Light" : "Dark";
     public bool IsLeftToRight => _readingDirection == ReadingDirection.LeftToRight;
     public bool IsRightToLeft => _readingDirection == ReadingDirection.RightToLeft;
     public bool IsTopToBottom => _readingDirection == ReadingDirection.TopToBottom;
@@ -602,6 +603,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         ApplyTheme();
         RaisePropertyChanged(nameof(IsDarkTheme));
         RaisePropertyChanged(nameof(IsLightTheme));
+        RaisePropertyChanged(nameof(ThemeToggleLabel));
         NotifyAllDirectionProps();
         NotifyGlobalSettingsProps();
         NotifyReaderSettingsProps();
@@ -1374,6 +1376,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _isDarkTheme = !_isDarkTheme;
         RaisePropertyChanged(nameof(IsDarkTheme));
         RaisePropertyChanged(nameof(IsLightTheme));
+        RaisePropertyChanged(nameof(ThemeToggleLabel));
         ApplyTheme();
         _ = SavePreferencesAsync();
     }

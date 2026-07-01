@@ -233,52 +233,49 @@
             Grid.Row="1"
             IsVisible="{Binding !IsVerticalMode}"
             Background="Transparent">
-        <ScrollViewer IsVisible="{Binding IsFitPageMode}"
-                      HorizontalScrollBarVisibility="Auto"
-                      VerticalScrollBarVisibility="Auto">
-          <Grid MinHeight="400">
-            <LayoutTransformControl Margin="20"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    IsVisible="{Binding IsSinglePageVisible}">
-              <LayoutTransformControl.LayoutTransform>
+        <Grid IsVisible="{Binding IsFitPageMode}"
+              ClipToBounds="True"
+              Margin="20">
+          <Grid>
+            <Viewbox IsVisible="{Binding IsSinglePageVisible}"
+                     Stretch="Uniform"
+                     RenderTransformOrigin="0.5,0.5">
+              <Viewbox.RenderTransform>
                 <media:ScaleTransform ScaleX="{Binding ReaderZoom}" ScaleY="{Binding ReaderZoom}" />
-              </LayoutTransformControl.LayoutTransform>
+              </Viewbox.RenderTransform>
               <Grid>
                 <Image Source="{Binding CurrentPageImage}"
-                       Stretch="Uniform" />
+                       Stretch="None" />
                 <Border Background="{Binding ReaderPageTintBrush}"
                         IsVisible="{Binding IsReaderTintVisible}"
                         IsHitTestVisible="False" />
               </Grid>
-            </LayoutTransformControl>
+            </Viewbox>
 
-            <LayoutTransformControl Margin="20"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    IsVisible="{Binding IsTwoPageVisible}">
-              <LayoutTransformControl.LayoutTransform>
+            <Viewbox IsVisible="{Binding IsTwoPageVisible}"
+                     Stretch="Uniform"
+                     RenderTransformOrigin="0.5,0.5">
+              <Viewbox.RenderTransform>
                 <media:ScaleTransform ScaleX="{Binding ReaderZoom}" ScaleY="{Binding ReaderZoom}" />
-              </LayoutTransformControl.LayoutTransform>
+              </Viewbox.RenderTransform>
               <Grid ColumnDefinitions="Auto,Auto">
-                <Grid Margin="0,0,8,0">
+                <Grid>
                   <Image Source="{Binding CurrentPageImage}"
-                         Stretch="Uniform" />
+                         Stretch="None" />
                   <Border Background="{Binding ReaderPageTintBrush}"
                           IsVisible="{Binding IsReaderTintVisible}"
                           IsHitTestVisible="False" />
                 </Grid>
                 <Grid Grid.Column="1"
-                      Margin="8,0,0,0"
                       IsVisible="{Binding HasNextPageImage}">
                   <Image Source="{Binding NextPageImage}"
-                         Stretch="Uniform" />
+                         Stretch="None" />
                   <Border Background="{Binding ReaderPageTintBrush}"
                           IsVisible="{Binding IsReaderTintVisible}"
                           IsHitTestVisible="False" />
                 </Grid>
               </Grid>
-            </LayoutTransformControl>
+            </Viewbox>
             <StackPanel HorizontalAlignment="Center"
                         VerticalAlignment="Center"
                         Spacing="12"
@@ -296,7 +293,7 @@
                          FontSize="12" />
             </StackPanel>
           </Grid>
-        </ScrollViewer>
+        </Grid>
 
         <ScrollViewer IsVisible="{Binding IsFitWidthMode}"
                       HorizontalScrollBarVisibility="Disabled"
@@ -323,7 +320,7 @@
                 <media:ScaleTransform ScaleX="{Binding ReaderZoom}" ScaleY="{Binding ReaderZoom}" />
               </LayoutTransformControl.LayoutTransform>
               <Grid ColumnDefinitions="*,*">
-                <Grid Margin="0,0,4,0">
+                <Grid>
                   <Image Source="{Binding CurrentPageImage}"
                          Stretch="Uniform"
                          HorizontalAlignment="Stretch" />
@@ -332,7 +329,6 @@
                           IsHitTestVisible="False" />
                 </Grid>
                 <Grid Grid.Column="1"
-                      Margin="4,0,0,0"
                       IsVisible="{Binding HasNextPageImage}">
                   <Image Source="{Binding NextPageImage}"
                          Stretch="Uniform"
