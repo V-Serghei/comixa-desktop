@@ -7,18 +7,19 @@ public sealed record ScannedComicFile(
     string FileName,
     ComicFormat Format,
     long SizeBytes,
-    int PageCount)
+    int PageCount,
+    ParsedComicTitle? TitleMetadata = null)
 {
     public ComicBook ToComicBook(DateTimeOffset addedAt)
     {
-        var parsed = ComicTitleParser.Parse(FileName);
-        var seriesName = ResolveSeriesName(parsed, FilePath);
+        var parsed = TitleMetadata ?? ComicTitleParser.Parse(FileName);
+        var resolved = ResolveTitle(parsed, FilePath);
 
         return new ComicBook(
             Guid.NewGuid(),
-            parsed.DisplayTitle,
-            seriesName,
-            parsed.IssueNumber,
+            resolved.DisplayTitle,
+            resolved.SeriesName,
+            resolved.IssueNumber,
             FilePath,
             Format,
             PageCount,
@@ -26,22 +27,27 @@ public sealed record ScannedComicFile(
             addedAt);
     }
 
-    private static string? ResolveSeriesName(ParsedComicTitle parsed, string filePath)
+    private static ParsedComicTitle ResolveTitle(ParsedComicTitle parsed, string filePath)
     {
         if (!ShouldPreferParentFolder(parsed))
         {
-            return parsed.SeriesName;
+            return parsed;
         }
 
         var parent = Directory.GetParent(filePath);
-        if (parent is null)
+        if (parent is null || string.IsNullOrWhiteSpace(parent.Name) || IsGenericLibraryFolderName(parent.Name))
         {
-            return parsed.SeriesName;
+            return parsed;
         }
 
-        return string.IsNullOrWhiteSpace(parent.Name)
-            ? parsed.SeriesName
-            : parent.Name;
+        var seriesName = ComicTitleParser.NormalizeDisplayName(parent.Name);
+        var displayTitle = ComicTitleParser.BuildSeriesDisplayTitle(seriesName, parsed.IssueNumber, parsed.VolumeNumber);
+
+        return parsed with
+        {
+            DisplayTitle = string.IsNullOrWhiteSpace(displayTitle) ? parsed.DisplayTitle : displayTitle,
+            SeriesName = string.IsNullOrWhiteSpace(seriesName) ? parsed.SeriesName : seriesName
+        };
     }
 
     private static bool ShouldPreferParentFolder(ParsedComicTitle parsed)
@@ -85,5 +91,18 @@ public sealed record ScannedComicFile(
     private static bool IsIssueSeparator(char value)
     {
         return char.IsWhiteSpace(value) || value is '-' or '_' or '.' or ',';
+    }
+
+    private static bool IsGenericLibraryFolderName(string folderName)
+    {
+        var normalized = ComicTitleParser.NormalizeDisplayName(folderName);
+        return normalized.Equals("Com", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Comic", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Comics", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Manga", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Library", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Books", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Downloads", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("Desktop", StringComparison.OrdinalIgnoreCase);
     }
 }

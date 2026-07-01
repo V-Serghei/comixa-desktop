@@ -97,7 +97,8 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
                 fileInfo.Name,
                 extension.Equals(".cbz", StringComparison.OrdinalIgnoreCase) ? ComicFormat.Cbz : ComicFormat.Zip,
                 fileInfo.Length,
-                pageCount);
+                pageCount,
+                ComicArchiveMetadataReader.TryReadTitleMetadata(path, fileInfo.Name));
         }
 
         if (DetectedOnlyExtensions.TryGetValue(extension, out var detectedFormat))

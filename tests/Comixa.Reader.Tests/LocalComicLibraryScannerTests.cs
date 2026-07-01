@@ -55,6 +55,94 @@ public sealed class LocalComicLibraryScannerTests
         Assert.Empty(files);
     }
 
+    [Fact]
+    public async Task ScanAsyncReadsComicInfoMetadataFromArchive()
+    {
+        var root = CreateTemporaryFolder();
+
+        try
+        {
+            var cbzPath = Path.Join(root, "release-group-y-the-last-man-v1-ch001.cbz");
+            CreateZipWithComicInfo(
+                cbzPath,
+                """
+                <ComicInfo>
+                  <Series>Y: The Last Man</Series>
+                  <Number>1</Number>
+                  <Volume>1</Volume>
+                  <Title>Unmanned</Title>
+                </ComicInfo>
+                """,
+                "001.jpg");
+
+            var scanner = new LocalComicLibraryScanner();
+
+            var file = Assert.Single(await scanner.ScanAsync(root));
+            var book = file.ToComicBook(DateTimeOffset.UtcNow);
+
+            Assert.Equal("Y: The Last Man Vol. 1 #1 - Unmanned", book.Title);
+            Assert.Equal("Y: The Last Man", book.SeriesName);
+            Assert.Equal(1, book.IssueNumber);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ScanAsyncUsesParentFolderForGenericArchiveNames()
+    {
+        var root = CreateTemporaryFolder();
+
+        try
+        {
+            var seriesFolder = Path.Join(root, "y-the-last-man");
+            Directory.CreateDirectory(seriesFolder);
+            CreateZip(Path.Join(seriesFolder, "001.cbz"), "001.jpg", "002.jpg");
+
+            var scanner = new LocalComicLibraryScanner();
+
+            var file = Assert.Single(await scanner.ScanAsync(root));
+            var book = file.ToComicBook(DateTimeOffset.UtcNow);
+
+            Assert.Equal("Y The Last Man #1", book.Title);
+            Assert.Equal("Y The Last Man", book.SeriesName);
+            Assert.Equal(1, book.IssueNumber);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ScanAsyncInfersTitleFromArchivePageNamesWhenArchiveNameIsGeneric()
+    {
+        var root = CreateTemporaryFolder();
+
+        try
+        {
+            CreateZip(
+                Path.Join(root, "001.cbz"),
+                "y_-_the_last_man_01_p01.avif",
+                "y_-_the_last_man_01_p02.avif");
+
+            var scanner = new LocalComicLibraryScanner();
+
+            var file = Assert.Single(await scanner.ScanAsync(root));
+            var book = file.ToComicBook(DateTimeOffset.UtcNow);
+
+            Assert.Equal("Y The Last Man #1", book.Title);
+            Assert.Equal("Y The Last Man", book.SeriesName);
+            Assert.Equal(1, book.IssueNumber);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static string CreateTemporaryFolder()
     {
         var path = Path.Join(Path.GetTempPath(), "comixa-reader-tests", Guid.NewGuid().ToString("N"));
@@ -67,6 +155,26 @@ public sealed class LocalComicLibraryScannerTests
         using var archive = ZipFile.Open(path, ZipArchiveMode.Create);
 
         foreach (var entryName in entries)
+        {
+            var entry = archive.CreateEntry(entryName);
+            using var stream = entry.Open();
+            using var writer = new StreamWriter(stream);
+            writer.Write("content");
+        }
+    }
+
+    private static void CreateZipWithComicInfo(string path, string comicInfoXml, params string[] imageEntries)
+    {
+        using var archive = ZipFile.Open(path, ZipArchiveMode.Create);
+
+        var metadataEntry = archive.CreateEntry("ComicInfo.xml");
+        using (var stream = metadataEntry.Open())
+        using (var writer = new StreamWriter(stream))
+        {
+            writer.Write(comicInfoXml);
+        }
+
+        foreach (var entryName in imageEntries)
         {
             var entry = archive.CreateEntry(entryName);
             using var stream = entry.Open();

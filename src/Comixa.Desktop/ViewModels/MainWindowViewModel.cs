@@ -100,6 +100,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private int _currentPageLoadVersion;
     private SingleLibraryItemViewModel? _openSingleItem;
     private int _libraryItemsPerRow = 2;
+    private int? _nextOpenPageIndexOverride;
 
     public MainWindowViewModel(
         IFolderPicker folderPicker,
@@ -454,7 +455,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             CancelBookPreload();
             HideNextSeriesBookPrompt();
             _selectedBook = value;
-            CurrentPageIndex = GetInitialPageIndex(value);
+            CurrentPageIndex = _nextOpenPageIndexOverride ?? GetInitialPageIndex(value);
+            _nextOpenPageIndexOverride = null;
             UpdateNextSeriesBook();
             RaisePropertyChanged();
             RaisePropertyChanged(nameof(HasSelectedBook));
@@ -578,9 +580,13 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         var pageCount = Math.Max(0, book.ComicBook.PageCount - 1);
-        return _progressMap.TryGetValue(book.ComicBook.Id, out var progress)
-            ? Math.Clamp(progress.PageNumber, 0, pageCount)
-            : 0;
+        if (!_progressMap.TryGetValue(book.ComicBook.Id, out var progress))
+        {
+            return 0;
+        }
+
+        var pageNumber = Math.Clamp(progress.PageNumber, 0, pageCount);
+        return pageCount > 0 && pageNumber >= pageCount ? 0 : pageNumber;
     }
 
     // --- Initialization ---
@@ -908,15 +914,15 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     private void OpenBook(ComicBookListItemViewModel? book)
     {
-        OpenBook(book, openFullscreen: false);
+        OpenBook(book, openFullscreen: false, startAtFirstPage: false);
     }
 
     private void OpenBookFullscreen(ComicBookListItemViewModel? book)
     {
-        OpenBook(book, openFullscreen: true);
+        OpenBook(book, openFullscreen: true, startAtFirstPage: false);
     }
 
-    private void OpenBook(ComicBookListItemViewModel? book, bool openFullscreen)
+    private void OpenBook(ComicBookListItemViewModel? book, bool openFullscreen, bool startAtFirstPage)
     {
         if (book is null) return;
 
@@ -937,7 +943,20 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             _openSingleItem.IsCurrentlyOpen = true;
 
         ResetReaderViewToFitPage();
+        HideNextSeriesBookPrompt();
+        _nextOpenPageIndexOverride = startAtFirstPage ? 0 : null;
+        var wasSelected = SelectedBook?.ComicBook.Id == book.ComicBook.Id;
         SelectedBook = book;
+        if (wasSelected)
+        {
+            CurrentPageIndex = _nextOpenPageIndexOverride ?? GetInitialPageIndex(book);
+            _nextOpenPageIndexOverride = null;
+
+            if (_readingDirection == ReadingDirection.TopToBottom)
+                _ = LoadVerticalPagesAsync(book.ComicBook);
+            else
+                _ = LoadCurrentPageAsync();
+        }
 
         if (openFullscreen || _openComicsInFullscreen)
         {
@@ -1539,7 +1558,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         HideNextSeriesBookPrompt();
-        OpenBook(nextBook);
+        OpenBook(nextBook, openFullscreen: false, startAtFirstPage: true);
     }
 
     private void UpdateNextSeriesBook()
