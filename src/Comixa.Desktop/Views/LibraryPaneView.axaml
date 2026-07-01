@@ -8,6 +8,7 @@
   <UserControl.DataTemplates>
     <DataTemplate x:DataType="vm:SingleLibraryItemViewModel">
       <Button Command="{Binding OpenCommand}"
+              DoubleTapped="OnLibraryItemDoubleTapped"
               Background="Transparent"
               BorderThickness="0"
               Padding="4"
@@ -15,6 +16,7 @@
         <Button.ContextMenu>
           <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
             <MenuItem Header="Open" Command="{Binding OpenCommand}" />
+            <MenuItem Header="Open Fullscreen" Command="{Binding OpenFullscreenCommand}" />
             <Separator />
             <MenuItem Header="Mark as Read" Command="{Binding MarkAsReadCommand}" />
             <MenuItem Header="Mark as Unread" Command="{Binding MarkAsUnreadCommand}" />
@@ -308,6 +310,7 @@
               <DataTemplate x:DataType="vm:ComicBookListItemViewModel">
                 <Button Command="{Binding $parent[UserControl].DataContext.OpenBookCommand}"
                         CommandParameter="{Binding}"
+                        DoubleTapped="OnLibraryItemDoubleTapped"
                         Background="Transparent"
                         BorderThickness="0"
                         Padding="0"

@@ -127,6 +127,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         ScanFolderCommand = new AsyncRelayCommand(ScanFolderAsync);
         BackToLibraryCommand = new RelayCommand(BackToLibrary);
         OpenBookCommand = new RelayCommand<ComicBookListItemViewModel>(OpenBook);
+        OpenBookFullscreenCommand = new RelayCommand<ComicBookListItemViewModel>(OpenBookFullscreen);
 
         // Navigation commands
         NavigateToAllBooksCommand = new RelayCommand(NavigateToAllBooks);
@@ -224,6 +225,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public AsyncRelayCommand ScanFolderCommand { get; }
     public RelayCommand BackToLibraryCommand { get; }
     public RelayCommand<ComicBookListItemViewModel> OpenBookCommand { get; }
+    public RelayCommand<ComicBookListItemViewModel> OpenBookFullscreenCommand { get; }
     public RelayCommand PreviousPageCommand { get; }
     public RelayCommand NextPageCommand { get; }
     public RelayCommand PageBackwardCommand { get; }
@@ -904,6 +906,16 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     private void OpenBook(ComicBookListItemViewModel? book)
     {
+        OpenBook(book, openFullscreen: false);
+    }
+
+    private void OpenBookFullscreen(ComicBookListItemViewModel? book)
+    {
+        OpenBook(book, openFullscreen: true);
+    }
+
+    private void OpenBook(ComicBookListItemViewModel? book, bool openFullscreen)
+    {
         if (book is null) return;
 
         if (_isSettingsPanelVisible)
@@ -922,9 +934,10 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         if (_openSingleItem is not null)
             _openSingleItem.IsCurrentlyOpen = true;
 
+        ResetReaderViewToFitPage();
         SelectedBook = book;
 
-        if (_openComicsInFullscreen)
+        if (openFullscreen || _openComicsInFullscreen)
         {
             SetReaderFullscreen(true);
         }
@@ -1068,6 +1081,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
                     result.Add(new SingleLibraryItemViewModel(
                         b,
                         book => OpenBook(book),
+                        book => OpenBookFullscreen(book),
                         MarkBookAsRead,
                         MarkBookAsUnread,
                         BuildShelfMenuItems(b.ComicBook.Id)));
@@ -1151,6 +1165,24 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         RaisePropertyChanged(nameof(IsFitPageMode));
         RaisePropertyChanged(nameof(IsFitWidthMode));
         RaisePropertyChanged(nameof(FitModeLabel));
+    }
+
+    private void ResetReaderViewToFitPage()
+    {
+        if (_fitMode != FitMode.FitPage)
+        {
+            _fitMode = FitMode.FitPage;
+            RaisePropertyChanged(nameof(IsFitPageMode));
+            RaisePropertyChanged(nameof(IsFitWidthMode));
+            RaisePropertyChanged(nameof(FitModeLabel));
+        }
+
+        if (Math.Abs(_readerZoom - 1.0) > 0.001)
+        {
+            _readerZoom = 1.0;
+            RaisePropertyChanged(nameof(ReaderZoom));
+            RaisePropertyChanged(nameof(ZoomLabel));
+        }
     }
 
     private void ToggleReaderFullscreen()
