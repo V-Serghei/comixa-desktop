@@ -236,5 +236,45 @@
       <Setter Property="Foreground" Value="#001B12" />
       <Setter Property="BorderBrush" Value="#5EF0B5" />
     </Style>
+
+    <Style Selector="ListBox.libraryList">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="ListBox.libraryList ListBoxItem">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+
+    <Style Selector="ListBox.libraryList ListBoxItem:pointerover">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ListBox.libraryList ListBoxItem:selected">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ListBox.verticalReaderList">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <Style Selector="ListBox.verticalReaderList ListBoxItem">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+
+    <Style Selector="ListBox.verticalReaderList ListBoxItem:pointerover">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ListBox.verticalReaderList ListBoxItem:selected">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
   </Application.Styles>
 </Application>

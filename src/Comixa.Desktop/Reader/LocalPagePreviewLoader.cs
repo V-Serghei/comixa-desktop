@@ -1,27 +1,41 @@
 using System.Collections.Concurrent;
 using System.IO.Compression;
+using Avalonia;
 using Avalonia.Media.Imaging;
 using Comixa.Core.Models;
 using Comixa.Reader.Scanning;
 using ImageMagick;
+using PDFtoImage;
+using PDFtoImage.Exceptions;
 
 namespace Comixa.Desktop.Reader;
 
-public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IPageCacheMaintenance, IDisposable
+public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLoader, IPageCacheMaintenance, IDisposable
 {
     private const int MaxCachedPages = 256;
+    private const int MaxRenderedPages = 384;
     private const int HotPreloadForwardPages = 16;
     private const int HotPreloadBackwardPages = 4;
     private const int HotPreloadParallelism = 4;
     private const long MaxCachedPageBytes = 768L * 1024L * 1024L;
+    private const long MaxCachedRenderedPageBytes = 512L * 1024L * 1024L;
     private static readonly TimeSpan PageIdleLifetime = TimeSpan.FromMinutes(7);
     private static readonly TimeSpan CleanupInterval = TimeSpan.FromSeconds(45);
+    private static readonly RenderOptions PdfRenderOptions = new(
+        Dpi: 144,
+        Width: 2200,
+        Height: null,
+        WithAnnotations: true,
+        WithAspectRatio: true,
+        UseTiling: true);
 
     private static readonly ConcurrentDictionary<string, string[]> ArchiveImageEntryNames = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, string[]> FolderImagePaths = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly PageBitmapCache _pageCache = new(MaxCachedPages, MaxCachedPageBytes, PageIdleLifetime, CleanupInterval);
+    private readonly PageBitmapCache _renderCache = new(MaxRenderedPages, MaxCachedRenderedPageBytes, PageIdleLifetime, CleanupInterval);
     private readonly ConcurrentDictionary<string, Lazy<Task<Bitmap?>>> _pageLoads = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Lazy<Task<Bitmap?>>> _renderLoads = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _decodeGate = new(Math.Clamp(Environment.ProcessorCount / 2, 2, 6));
     private readonly SemaphoreSlim _preloadGate = new(1, 1);
     private volatile bool _isDisposed;
@@ -57,6 +71,47 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IPageCacheMaint
             if (load.IsValueCreated && load.Value.IsCompleted)
             {
                 _pageLoads.TryRemove(cacheKey, out _);
+            }
+        }
+    }
+
+    public async Task<Bitmap?> LoadRenderedPageAsync(
+        ComicBook comicBook,
+        int pageIndex,
+        PixelSize targetSize,
+        CancellationToken cancellationToken = default)
+    {
+        if (_isDisposed)
+        {
+            return null;
+        }
+
+        if (targetSize.Width <= 0 || targetSize.Height <= 0)
+        {
+            return await LoadPageAsync(comicBook, pageIndex, cancellationToken);
+        }
+
+        var pageKey = GetPageCacheKey(comicBook, pageIndex);
+        var cacheKey = GetRenderedPageCacheKey(pageKey, targetSize);
+        if (_renderCache.TryGet(cacheKey, out var cachedPage))
+        {
+            return cachedPage;
+        }
+
+        var load = _renderLoads.GetOrAdd(
+            cacheKey,
+            _ => new Lazy<Task<Bitmap?>>(
+                () => LoadRenderedPageUncachedAsync(comicBook, pageIndex, targetSize, cacheKey, CancellationToken.None)));
+
+        try
+        {
+            return await load.Value.WaitAsync(cancellationToken);
+        }
+        finally
+        {
+            if (load.IsValueCreated && load.Value.IsCompleted)
+            {
+                _renderLoads.TryRemove(cacheKey, out _);
             }
         }
     }
@@ -124,17 +179,21 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IPageCacheMaint
             .Select(index => GetPageCacheKey(cacheKeyPrefix, index));
 
         _pageCache.PinOnly(keys);
+        _renderCache.TrimExpired();
     }
 
     public void ClearInactivePages()
     {
         _pageCache.TrimExpired();
+        _renderCache.TrimExpired();
     }
 
     public void ClearAllPages()
     {
         _pageLoads.Clear();
+        _renderLoads.Clear();
         _pageCache.Clear();
+        _renderCache.Clear();
         ArchiveImageEntryNames.Clear();
         FolderImagePaths.Clear();
     }
@@ -148,9 +207,11 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IPageCacheMaint
 
         _isDisposed = true;
         _pageLoads.Clear();
+        _renderLoads.Clear();
         ArchiveImageEntryNames.Clear();
         FolderImagePaths.Clear();
         _pageCache.Dispose();
+        _renderCache.Dispose();
     }
 
     private async Task<Bitmap?> LoadPageUncachedAsync(
@@ -169,6 +230,7 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IPageCacheMaint
                 {
                     ComicFormat.Cbz or ComicFormat.Zip => await LoadArchivePageAsync(comicBook.FilePath, pageIndex, cancellationToken),
                     ComicFormat.ImageFolder => await LoadImageFolderPageAsync(comicBook.FilePath, pageIndex, cancellationToken),
+                    ComicFormat.Pdf => await LoadPdfPageAsync(comicBook.FilePath, pageIndex, cancellationToken),
                     _ => null
                 };
 
@@ -194,6 +256,45 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IPageCacheMaint
                 _decodeGate.Release();
             }
         }, cancellationToken);
+    }
+
+    private async Task<Bitmap?> LoadRenderedPageUncachedAsync(
+        ComicBook comicBook,
+        int pageIndex,
+        PixelSize targetSize,
+        string cacheKey,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var source = await LoadPageAsync(comicBook, pageIndex, cancellationToken);
+            if (source is null)
+            {
+                return null;
+            }
+
+            var renderedSize = CalculateRenderedSize(source.PixelSize, targetSize);
+            if (renderedSize == source.PixelSize)
+            {
+                return source;
+            }
+
+            var rendered = await Task.Run(
+                () => source.CreateScaledBitmap(renderedSize, BitmapInterpolationMode.MediumQuality),
+                cancellationToken);
+
+            if (_isDisposed)
+            {
+                rendered.Dispose();
+                return null;
+            }
+
+            return _renderCache.AddOrGet(cacheKey, rendered);
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     private static async Task PreloadPageBatchAsync(
@@ -320,6 +421,32 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IPageCacheMaint
         return await LoadBitmapAsync(stream, cancellationToken);
     }
 
+    private static Task<Bitmap?> LoadPdfPageAsync(string pdfPath, int pageIndex, CancellationToken cancellationToken)
+    {
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            using var pdfStream = File.OpenRead(pdfPath);
+            using var imageStream = new MemoryStream();
+            Conversion.SavePng(imageStream, pdfStream, pageIndex, options: PdfRenderOptions);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            imageStream.Position = 0;
+            return Task.FromResult<Bitmap?>(new Bitmap(imageStream));
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or InvalidOperationException
+            or DllNotFoundException
+            or BadImageFormatException
+            or PdfException)
+        {
+            return Task.FromResult<Bitmap?>(null);
+        }
+    }
+
     private static string[] GetArchiveImageEntryNames(string archivePath)
     {
         return ArchiveImageEntryNames.GetOrAdd(archivePath, path =>
@@ -397,6 +524,32 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IPageCacheMaint
     private static string GetPageCacheKey(string cacheKeyPrefix, int pageIndex)
     {
         return $"{cacheKeyPrefix}|{pageIndex}";
+    }
+
+    private static string GetRenderedPageCacheKey(string pageKey, PixelSize targetSize)
+    {
+        return $"{pageKey}|render|{targetSize.Width}x{targetSize.Height}";
+    }
+
+    private static PixelSize CalculateRenderedSize(PixelSize sourceSize, PixelSize targetSize)
+    {
+        if (sourceSize.Width <= 0 || sourceSize.Height <= 0)
+        {
+            return targetSize;
+        }
+
+        var widthScale = (double)targetSize.Width / sourceSize.Width;
+        var heightScale = (double)targetSize.Height / sourceSize.Height;
+        var scale = Math.Min(1.0, Math.Min(widthScale, heightScale));
+
+        if (scale >= 0.995)
+        {
+            return sourceSize;
+        }
+
+        return new PixelSize(
+            Math.Max(1, (int)Math.Round(sourceSize.Width * scale)),
+            Math.Max(1, (int)Math.Round(sourceSize.Height * scale)));
     }
 
     private static async Task<Bitmap?> LoadBitmapAsync(Stream source, CancellationToken cancellationToken)

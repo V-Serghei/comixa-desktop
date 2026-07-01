@@ -15,6 +15,9 @@ namespace Comixa.Desktop.ViewModels;
 
 public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 {
+    private const double LibraryCardSlotWidth = 124;
+    private const int MaxLibraryItemsPerRow = 40;
+
     private readonly IFolderPicker _folderPicker;
     private readonly IComicLibraryScanner _comicLibraryScanner;
     private readonly IUserLibrarySettingsStore _settingsStore;
@@ -96,6 +99,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private int _preloadAnchorPageIndex = -1;
     private int _currentPageLoadVersion;
     private SingleLibraryItemViewModel? _openSingleItem;
+    private int _libraryItemsPerRow = 2;
 
     public MainWindowViewModel(
         IFolderPicker folderPicker,
@@ -204,7 +208,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     // Collections
     public ObservableCollection<LibraryItemViewModel> DisplayedItems { get; } = [];
-    public ObservableCollection<Bitmap?> VerticalPages { get; } = [];
+    public ObservableCollection<LibraryRowViewModel> DisplayedRows { get; } = [];
+    public ObservableCollection<ReaderPageViewModel> VerticalPages { get; } = [];
     public ObservableCollection<ShelfViewModel> Shelves { get; } = [];
     public ObservableCollection<LibraryFolderViewModel> LibraryFolders { get; } = [];
 
@@ -258,6 +263,27 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     // Commands - settings
     public RelayCommand<string> SetReadingDirectionCommand { get; }
     public RelayCommand ToggleThemeCommand { get; }
+
+    public void SetLibraryViewportWidth(double width)
+    {
+        if (double.IsNaN(width) || width <= 0)
+        {
+            return;
+        }
+
+        var nextItemsPerRow = Math.Clamp(
+            (int)Math.Floor(width / LibraryCardSlotWidth),
+            1,
+            MaxLibraryItemsPerRow);
+
+        if (nextItemsPerRow == _libraryItemsPerRow)
+        {
+            return;
+        }
+
+        _libraryItemsPerRow = nextItemsPerRow;
+        RebuildDisplayedRows();
+    }
 
     // Window title
     public string Title => SelectedBook is null
@@ -987,6 +1013,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         foreach (var item in grouped)
             DisplayedItems.Add(item);
 
+        RebuildDisplayedRows();
+
         if (_selectedBook is not null)
         {
             _openSingleItem = DisplayedItems
@@ -997,6 +1025,17 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         RaisePropertyChanged(nameof(IsLibraryEmpty));
+    }
+
+    private void RebuildDisplayedRows()
+    {
+        DisplayedRows.Clear();
+
+        for (var index = 0; index < DisplayedItems.Count; index += _libraryItemsPerRow)
+        {
+            DisplayedRows.Add(new LibraryRowViewModel(
+                DisplayedItems.Skip(index).Take(_libraryItemsPerRow).ToArray()));
+        }
     }
 
     private IEnumerable<LibraryItemViewModel> BuildLibraryItems(List<ComicBookListItemViewModel> books)
@@ -1321,7 +1360,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             _ = LoadVerticalPagesAsync(SelectedBook.ComicBook);
         else if (_readingDirection != ReadingDirection.TopToBottom)
         {
-            VerticalPages.Clear();
+            ClearVerticalPages();
             _ = LoadCurrentPageAsync();
         }
 
@@ -1690,34 +1729,43 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _verticalPagesCts = new CancellationTokenSource();
         var cts = _verticalPagesCts;
 
-        VerticalPages.Clear();
+        CurrentPageImage = null;
+        NextPageImage = null;
+        ClearVerticalPages();
         IsPageLoading = true;
-        ReaderStatus = $"Loading {comicBook.Title}...";
+        ReaderStatus = comicBook.Title;
         if (_pagePreviewLoader is IPageCacheMaintenance maintenance)
         {
-            maintenance.SetActivePageWindow(comicBook, 0, comicBook.PageCount);
+            maintenance.SetActivePageWindow(comicBook, CurrentPageIndex, Math.Min(20, comicBook.PageCount));
         }
 
         try
         {
+            await Task.Yield();
+
             for (var index = 0; index < comicBook.PageCount; index++)
             {
                 cts.Token.ThrowIfCancellationRequested();
-
-                var page = await _pagePreviewLoader.LoadPageAsync(comicBook, index, cts.Token);
-                if (page is not null)
-                {
-                    VerticalPages.Add(page);
-                }
+                VerticalPages.Add(new ReaderPageViewModel(comicBook, index, _pagePreviewLoader));
             }
 
-            ReaderStatus = comicBook.Title;
+            StartBookPreload(comicBook, CurrentPageIndex);
         }
         catch (OperationCanceledException) { }
         finally
         {
             IsPageLoading = false;
         }
+    }
+
+    private void ClearVerticalPages()
+    {
+        foreach (var page in VerticalPages)
+        {
+            page.Detach();
+        }
+
+        VerticalPages.Clear();
     }
 
     private async Task LoadCoversAsync()
@@ -1786,7 +1834,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
         CurrentPageImage = null;
         NextPageImage = null;
-        VerticalPages.Clear();
+        ClearVerticalPages();
 
         foreach (var book in _allBooks)
         {

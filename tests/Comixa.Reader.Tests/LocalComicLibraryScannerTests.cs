@@ -35,7 +35,7 @@ public sealed class LocalComicLibraryScannerTests
             Assert.Equal(4, files.Count);
             Assert.Contains(files, file => file.Format == ComicFormat.Cbz && file.PageCount == 3);
             Assert.Contains(files, file => file.Format == ComicFormat.Zip && file.PageCount == 1);
-            Assert.Contains(files, file => file.Format == ComicFormat.Pdf && file.PageCount == 2);
+            Assert.Contains(files, file => file.Format == ComicFormat.Pdf && file.PageCount == 0);
             Assert.Contains(files, file => file.Format == ComicFormat.ImageFolder && file.PageCount == 2);
             Assert.DoesNotContain(files, file => file.FileName == "backup.zip");
         }

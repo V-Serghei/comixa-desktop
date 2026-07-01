@@ -2,6 +2,11 @@ namespace Comixa.Desktop.ViewModels;
 
 public abstract class LibraryItemViewModel : ViewModelBase { }
 
+public sealed class LibraryRowViewModel(IReadOnlyList<LibraryItemViewModel> items)
+{
+    public IReadOnlyList<LibraryItemViewModel> Items { get; } = items;
+}
+
 public sealed class SingleLibraryItemViewModel : LibraryItemViewModel
 {
     private bool _isCurrentlyOpen;

@@ -188,6 +188,22 @@ public sealed partial class ReaderPaneView : UserControl
         PlayPageAnimation(vm.ReaderPageAnimation, direction);
     }
 
+    private void OnVerticalPageAttached(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (sender is Control { DataContext: ReaderPageViewModel page })
+        {
+            page.AttachAndLoad();
+        }
+    }
+
+    private void OnVerticalPageDetached(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (sender is Control { DataContext: ReaderPageViewModel page })
+        {
+            page.Detach();
+        }
+    }
+
     private async void PlayPageAnimation(ReaderPageAnimation animation, int direction)
     {
         if (animation == ReaderPageAnimation.None)

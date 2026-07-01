@@ -18,7 +18,7 @@ Comixa Desktop is an original desktop companion app for Comixa, a local-first co
 
 MVP 1 is the Local Desktop Reader Core. Current work includes local folder scanning, CBZ/ZIP reading, image-folder detection, SQLite persistence, shelves, bookmarks, reading progress, library/search/sort/status/folder/series views, cover caching, reader navigation, zoom/fit modes, fullscreen reader, reader settings, page cache/prefetch, and series next-part prompts.
 
-PDF is detected but not a finished reader pipeline yet. CBR/RAR/7z/EPUB can be detected as unsupported formats, but must not be implemented unless deliberately scoped later.
+PDF has a basic reader pipeline through PDFtoImage/PDFium. CBR/RAR/7z/EPUB can be detected as unsupported formats, but must not be implemented unless deliberately scoped later.
 
 Do not add fake cloud, sync, OCR, AI translation, SMB/WebDAV, CBR/RAR, or network features. `Comixa.Sync` is contracts only for now.
 

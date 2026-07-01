@@ -1,5 +1,7 @@
 using System.IO.Compression;
 using Comixa.Core.Models;
+using PDFtoImage;
+using PDFtoImage.Exceptions;
 
 namespace Comixa.Reader.Scanning;
 
@@ -105,7 +107,7 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
                 fileInfo.Name,
                 detectedFormat,
                 fileInfo.Length,
-                detectedFormat == ComicFormat.Pdf ? EstimatePdfPageCount(path) : 0);
+                detectedFormat == ComicFormat.Pdf ? CountPdfPages(path) : 0);
         }
 
         return null;
@@ -152,19 +154,34 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
         }
     }
 
-    private static int EstimatePdfPageCount(string pdfPath)
+    private static int CountPdfPages(string pdfPath)
     {
         try
         {
-            var text = File.ReadAllText(pdfPath);
-            var count = text.Split("/Type /Page", StringSplitOptions.None).Length - 1;
-            return Math.Max(0, count);
+            using var stream = File.OpenRead(pdfPath);
+            return Math.Max(0, Conversion.GetPageCount(stream));
         }
         catch (IOException)
         {
             return 0;
         }
         catch (UnauthorizedAccessException)
+        {
+            return 0;
+        }
+        catch (ArgumentException)
+        {
+            return 0;
+        }
+        catch (PdfException)
+        {
+            return 0;
+        }
+        catch (DllNotFoundException)
+        {
+            return 0;
+        }
+        catch (BadImageFormatException)
         {
             return 0;
         }

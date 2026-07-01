@@ -183,7 +183,10 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
         ComicBook comicBook,
         CancellationToken cancellationToken)
     {
-        var fullPage = await _pagePreviewLoader.LoadPageAsync(comicBook, 0, cancellationToken);
+        var fullPage = _pagePreviewLoader is IRenderedPageLoader renderedPageLoader
+            ? await renderedPageLoader.LoadRenderedPageAsync(comicBook, 0, new PixelSize(700, 1100), cancellationToken)
+            : await _pagePreviewLoader.LoadPageAsync(comicBook, 0, cancellationToken);
+
         if (fullPage is null)
         {
             return null;

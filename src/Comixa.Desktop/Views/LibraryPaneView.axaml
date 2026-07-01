@@ -259,17 +259,33 @@
                      MaxWidth="240" />
         </StackPanel>
 
-        <ScrollViewer IsVisible="{Binding !IsLibraryEmpty}"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled">
-          <ItemsControl ItemsSource="{Binding DisplayedItems}" Margin="0,0,0,16">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <WrapPanel />
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-          </ItemsControl>
-        </ScrollViewer>
+        <ListBox x:Name="LibraryItemsList"
+                 ItemsSource="{Binding DisplayedRows}"
+                 IsVisible="{Binding !IsLibraryEmpty}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 Padding="0"
+                 Margin="0,0,0,16"
+                 Classes="libraryList"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel CacheLength="0.5" />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:LibraryRowViewModel">
+              <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+              </ItemsControl>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
       </Grid>
 
       <Grid RowDefinitions="Auto,Auto,*" IsVisible="{Binding IsInSeriesDetail}">

@@ -347,17 +347,57 @@
         </ScrollViewer>
       </Grid>
 
-      <ScrollViewer Grid.Row="1"
-                    IsVisible="{Binding IsVerticalMode}"
-                    VerticalScrollBarVisibility="Auto">
-        <ItemsControl ItemsSource="{Binding VerticalPages}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <Image Source="{Binding}" Stretch="Uniform" Margin="0,2" MaxWidth="960" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </ScrollViewer>
+      <ListBox Grid.Row="1"
+               ItemsSource="{Binding VerticalPages}"
+               IsVisible="{Binding IsVerticalMode}"
+               Background="Transparent"
+               BorderThickness="0"
+               Padding="0"
+               Classes="verticalReaderList"
+               ScrollViewer.VerticalScrollBarVisibility="Auto"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel CacheLength="0.5" />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:ReaderPageViewModel">
+            <Border AttachedToVisualTree="OnVerticalPageAttached"
+                    DetachedFromVisualTree="OnVerticalPageDetached"
+                    HorizontalAlignment="Center"
+                    MaxWidth="980"
+                    Margin="0,4"
+                    ClipToBounds="True">
+              <Grid>
+                <Image Source="{Binding Image}"
+                       Stretch="Uniform"
+                       IsVisible="{Binding HasImage}" />
+                <Border MinHeight="360"
+                        Background="#141B24"
+                        BorderBrush="#2C3947"
+                        BorderThickness="1"
+                        IsVisible="{Binding IsLoading}">
+                  <TextBlock Text="{Binding LoadingLabel}"
+                             Foreground="#B9C5D4"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                </Border>
+                <Border MinHeight="360"
+                        Background="#1B1416"
+                        BorderBrush="#6E3037"
+                        BorderThickness="1"
+                        IsVisible="{Binding HasFailed}">
+                  <TextBlock Text="Page could not be loaded"
+                             Foreground="#FFB4BD"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                </Border>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
 
       <Border Grid.Row="2" Padding="12,9" Background="#DD000000">
         <Grid ColumnDefinitions="Auto,*,Auto">
