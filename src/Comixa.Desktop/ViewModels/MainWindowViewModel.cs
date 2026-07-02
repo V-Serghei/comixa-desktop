@@ -71,6 +71,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _openComicsAtLastPosition = true;
     private bool _openComicsInFullscreen;
     private bool _isReaderPreviewPaneEnabled = true;
+    private bool _openPreviousChapterAtLastPage = true;
 
     // Shelf creation state
     private bool _isCreatingShelf;
@@ -178,6 +179,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         ToggleOpenComicsAtLastPositionCommand = new RelayCommand(ToggleOpenComicsAtLastPosition);
         ToggleOpenComicsInFullscreenCommand = new RelayCommand(ToggleOpenComicsInFullscreen);
         ToggleReaderPreviewPaneCommand = new RelayCommand(ToggleReaderPreviewPane);
+        ToggleOpenPreviousChapterAtLastPageCommand = new RelayCommand(ToggleOpenPreviousChapterAtLastPage);
         ToggleTwoPageModeCommand = new RelayCommand(ToggleTwoPageMode);
         ToggleEdgePageTurnsCommand = new RelayCommand(ToggleEdgePageTurns);
         ToggleDragPageTurnsCommand = new RelayCommand(ToggleDragPageTurns);
@@ -246,6 +248,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public RelayCommand ToggleOpenComicsAtLastPositionCommand { get; }
     public RelayCommand ToggleOpenComicsInFullscreenCommand { get; }
     public RelayCommand ToggleReaderPreviewPaneCommand { get; }
+    public RelayCommand ToggleOpenPreviousChapterAtLastPageCommand { get; }
     public RelayCommand ToggleTwoPageModeCommand { get; }
     public RelayCommand ToggleEdgePageTurnsCommand { get; }
     public RelayCommand ToggleDragPageTurnsCommand { get; }
@@ -428,6 +431,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public bool OpenComicsAtLastPosition => _openComicsAtLastPosition;
     public bool OpenComicsInFullscreen => _openComicsInFullscreen;
     public bool IsReaderPreviewPaneEnabled => _isReaderPreviewPaneEnabled;
+    public bool OpenPreviousChapterAtLastPage => _openPreviousChapterAtLastPage;
     public string ReaderPreviewPaneLabel => _isReaderPreviewPaneEnabled ? "Hide Reader" : "Show Reader";
     public GridLength LibraryPaneWidth =>
         _isReaderPreviewPaneEnabled ? new GridLength(340) : new GridLength(1, GridUnitType.Star);
@@ -645,6 +649,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _openComicsAtLastPosition = prefs.OpenComicsAtLastPosition;
         _openComicsInFullscreen = prefs.OpenComicsInFullscreen;
         _isReaderPreviewPaneEnabled = prefs.IsReaderPreviewPaneEnabled;
+        _openPreviousChapterAtLastPage = prefs.OpenPreviousChapterAtLastPage;
         ApplyTheme();
         RaisePropertyChanged(nameof(IsDarkTheme));
         RaisePropertyChanged(nameof(IsLightTheme));
@@ -1657,6 +1662,13 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _ = SavePreferencesAsync();
     }
 
+    private void ToggleOpenPreviousChapterAtLastPage()
+    {
+        _openPreviousChapterAtLastPage = !_openPreviousChapterAtLastPage;
+        NotifyReaderSettingsProps();
+        _ = SavePreferencesAsync();
+    }
+
     private void ToggleTwoPageMode()
     {
         _isTwoPageMode = !_isTwoPageMode;
@@ -1703,6 +1715,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _readerColorTone = defaults.ReaderColorTone;
         _readerPageAnimation = defaults.ReaderPageAnimation;
         _isTwoPageMode = defaults.IsTwoPageMode;
+        _openPreviousChapterAtLastPage = defaults.OpenPreviousChapterAtLastPage;
         NotifyAllDirectionProps();
         NotifyReaderSettingsProps();
 
@@ -1847,7 +1860,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             _isTwoPageMode,
             _openComicsAtLastPosition,
             _openComicsInFullscreen,
-            _isReaderPreviewPaneEnabled));
+            _isReaderPreviewPaneEnabled,
+            _openPreviousChapterAtLastPage));
     }
 
     // --- Bookmarks ---
@@ -1905,7 +1919,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         {
             if (HasPreviousSeriesBookPrompt)
             {
-                OpenPreviousSeriesBook();
+                OpenPreviousSeriesBook(startAtLastPage: _openPreviousChapterAtLastPage);
                 return;
             }
 
@@ -2005,6 +2019,11 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     private void OpenPreviousSeriesBook()
     {
+        OpenPreviousSeriesBook(startAtLastPage: false);
+    }
+
+    private void OpenPreviousSeriesBook(bool startAtLastPage)
+    {
         var previousBook = _previousSeriesBook;
         if (previousBook is null)
         {
@@ -2012,7 +2031,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         HideSeriesBookPrompts();
-        var startPageIndex = Math.Max(0, previousBook.ComicBook.PageCount - PageStep);
+        var startPageIndex = startAtLastPage
+            ? Math.Max(0, previousBook.ComicBook.PageCount - PageStep)
+            : 0;
         OpenBook(previousBook, openFullscreen: false, startPageIndexOverride: startPageIndex);
     }
 
@@ -2540,6 +2561,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         RaisePropertyChanged(nameof(IsEdgePageTurnEnabled));
         RaisePropertyChanged(nameof(IsDragPageTurnEnabled));
         RaisePropertyChanged(nameof(IsPageTurnInverted));
+        RaisePropertyChanged(nameof(OpenPreviousChapterAtLastPage));
         RaisePropertyChanged(nameof(ReaderWheelAction));
         RaisePropertyChanged(nameof(IsWheelScrollAction));
         RaisePropertyChanged(nameof(IsWheelPageTurnAction));

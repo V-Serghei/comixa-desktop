@@ -14,7 +14,8 @@ public sealed record UserPreferences(
     bool IsTwoPageMode,
     bool OpenComicsAtLastPosition,
     bool OpenComicsInFullscreen,
-    bool IsReaderPreviewPaneEnabled)
+    bool IsReaderPreviewPaneEnabled,
+    bool OpenPreviousChapterAtLastPage)
 {
     public static UserPreferences Default { get; } = new(
         IsDarkTheme: true,
@@ -28,5 +29,6 @@ public sealed record UserPreferences(
         IsTwoPageMode: false,
         OpenComicsAtLastPosition: true,
         OpenComicsInFullscreen: false,
-        IsReaderPreviewPaneEnabled: true);
+        IsReaderPreviewPaneEnabled: true,
+        OpenPreviousChapterAtLastPage: true);
 }

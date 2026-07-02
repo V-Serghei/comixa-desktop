@@ -42,7 +42,8 @@ public sealed class JsonUserPreferencesStore : IUserPreferencesStore
                 dto.IsTwoPageMode ?? UserPreferences.Default.IsTwoPageMode,
                 dto.OpenComicsAtLastPosition ?? UserPreferences.Default.OpenComicsAtLastPosition,
                 dto.OpenComicsInFullscreen ?? UserPreferences.Default.OpenComicsInFullscreen,
-                dto.IsReaderPreviewPaneEnabled ?? UserPreferences.Default.IsReaderPreviewPaneEnabled);
+                dto.IsReaderPreviewPaneEnabled ?? UserPreferences.Default.IsReaderPreviewPaneEnabled,
+                dto.OpenPreviousChapterAtLastPage ?? UserPreferences.Default.OpenPreviousChapterAtLastPage);
         }
         catch
         {
@@ -68,7 +69,8 @@ public sealed class JsonUserPreferencesStore : IUserPreferencesStore
             preferences.IsTwoPageMode,
             preferences.OpenComicsAtLastPosition,
             preferences.OpenComicsInFullscreen,
-            preferences.IsReaderPreviewPaneEnabled);
+            preferences.IsReaderPreviewPaneEnabled,
+            preferences.OpenPreviousChapterAtLastPage);
 
         await using var stream = File.Create(_path);
         await JsonSerializer.SerializeAsync(stream, dto, SerializerOptions, cancellationToken);
@@ -86,5 +88,6 @@ public sealed class JsonUserPreferencesStore : IUserPreferencesStore
         bool? IsTwoPageMode,
         bool? OpenComicsAtLastPosition,
         bool? OpenComicsInFullscreen,
-        bool? IsReaderPreviewPaneEnabled);
+        bool? IsReaderPreviewPaneEnabled,
+        bool? OpenPreviousChapterAtLastPage);
 }

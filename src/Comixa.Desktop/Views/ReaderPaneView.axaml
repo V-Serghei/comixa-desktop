@@ -67,6 +67,10 @@
                             Margin="0,0,6,6"
                             IsChecked="{Binding IsTwoPageMode, Mode=OneWay}"
                             Command="{Binding ToggleTwoPageModeCommand}" />
+              <ToggleButton Content="Previous opens at end"
+                            Margin="0,0,6,6"
+                            IsChecked="{Binding OpenPreviousChapterAtLastPage, Mode=OneWay}"
+                            Command="{Binding ToggleOpenPreviousChapterAtLastPageCommand}" />
               <Button Content="Reset reader defaults"
                       Margin="0,0,6,6"
                       Command="{Binding ResetReaderDefaultsCommand}" />
