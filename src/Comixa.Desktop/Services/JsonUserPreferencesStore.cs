@@ -32,7 +32,18 @@ public sealed class JsonUserPreferencesStore : IUserPreferencesStore
 
             return new UserPreferences(
                 dto.IsDarkTheme,
-                Enum.TryParse<ReadingDirection>(dto.ReadingDirection, out var dir) ? dir : ReadingDirection.LeftToRight);
+                Enum.TryParse<ReadingDirection>(dto.ReadingDirection, out var dir) ? dir : ReadingDirection.LeftToRight,
+                Enum.TryParse<ReaderWheelAction>(dto.ReaderWheelAction, out var wheelAction) ? wheelAction : UserPreferences.Default.ReaderWheelAction,
+                dto.IsEdgePageTurnEnabled ?? UserPreferences.Default.IsEdgePageTurnEnabled,
+                dto.IsDragPageTurnEnabled ?? UserPreferences.Default.IsDragPageTurnEnabled,
+                dto.IsPageTurnInverted ?? UserPreferences.Default.IsPageTurnInverted,
+                Enum.TryParse<ReaderColorTone>(dto.ReaderColorTone, out var colorTone) ? colorTone : UserPreferences.Default.ReaderColorTone,
+                Enum.TryParse<ReaderPageAnimation>(dto.ReaderPageAnimation, out var animation) ? animation : UserPreferences.Default.ReaderPageAnimation,
+                dto.IsTwoPageMode ?? UserPreferences.Default.IsTwoPageMode,
+                dto.OpenComicsAtLastPosition ?? UserPreferences.Default.OpenComicsAtLastPosition,
+                dto.OpenComicsInFullscreen ?? UserPreferences.Default.OpenComicsInFullscreen,
+                dto.IsReaderPreviewPaneEnabled ?? UserPreferences.Default.IsReaderPreviewPaneEnabled,
+                dto.OpenPreviousChapterAtLastPage ?? UserPreferences.Default.OpenPreviousChapterAtLastPage);
         }
         catch
         {
@@ -46,11 +57,37 @@ public sealed class JsonUserPreferencesStore : IUserPreferencesStore
         if (directory is not null)
             Directory.CreateDirectory(directory);
 
-        var dto = new PreferencesDto(preferences.IsDarkTheme, preferences.ReadingDirection.ToString());
+        var dto = new PreferencesDto(
+            preferences.IsDarkTheme,
+            preferences.ReadingDirection.ToString(),
+            preferences.ReaderWheelAction.ToString(),
+            preferences.IsEdgePageTurnEnabled,
+            preferences.IsDragPageTurnEnabled,
+            preferences.IsPageTurnInverted,
+            preferences.ReaderColorTone.ToString(),
+            preferences.ReaderPageAnimation.ToString(),
+            preferences.IsTwoPageMode,
+            preferences.OpenComicsAtLastPosition,
+            preferences.OpenComicsInFullscreen,
+            preferences.IsReaderPreviewPaneEnabled,
+            preferences.OpenPreviousChapterAtLastPage);
 
         await using var stream = File.Create(_path);
         await JsonSerializer.SerializeAsync(stream, dto, SerializerOptions, cancellationToken);
     }
 
-    private sealed record PreferencesDto(bool IsDarkTheme, string ReadingDirection);
+    private sealed record PreferencesDto(
+        bool IsDarkTheme,
+        string ReadingDirection,
+        string? ReaderWheelAction,
+        bool? IsEdgePageTurnEnabled,
+        bool? IsDragPageTurnEnabled,
+        bool? IsPageTurnInverted,
+        string? ReaderColorTone,
+        string? ReaderPageAnimation,
+        bool? IsTwoPageMode,
+        bool? OpenComicsAtLastPosition,
+        bool? OpenComicsInFullscreen,
+        bool? IsReaderPreviewPaneEnabled,
+        bool? OpenPreviousChapterAtLastPage);
 }

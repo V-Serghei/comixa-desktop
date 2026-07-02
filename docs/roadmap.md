@@ -4,7 +4,7 @@
 
 - Local folder selection.
 - File scanning for supported comic archives.
-- CBZ/ZIP reading.
+- CBZ/ZIP/PDF reading.
 - Library screen with covers.
 - Reader screen with page navigation.
 - Zoom and fit modes.

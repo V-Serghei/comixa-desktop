@@ -25,7 +25,7 @@ Comixa Desktop starts Windows-first, while the architecture must stay friendly t
 ## Planned MVP 1 Features
 
 - Local folder selection and file scanning
-- CBZ/ZIP reading
+- CBZ/ZIP/PDF reading
 - Library screen with covers
 - Reader screen with page navigation
 - Zoom and fit modes
