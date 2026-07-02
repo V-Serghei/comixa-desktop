@@ -8,6 +8,19 @@ public sealed class LibraryRowViewModel(IReadOnlyList<LibraryItemViewModel> item
     public int ColumnCount { get; } = columnCount;
 }
 
+public sealed class SeriesVariantViewModel(
+    string title,
+    string subtitle,
+    IReadOnlyList<ComicBookListItemViewModel> books,
+    IReadOnlyList<LibraryRowViewModel> rows)
+{
+    public string Title { get; } = title;
+    public string Subtitle { get; } = subtitle;
+    public IReadOnlyList<ComicBookListItemViewModel> Books { get; } = books;
+    public IReadOnlyList<LibraryRowViewModel> Rows { get; } = rows;
+    public bool HasSubtitle => !string.IsNullOrWhiteSpace(Subtitle);
+}
+
 public sealed class SingleLibraryItemViewModel : LibraryItemViewModel
 {
     private bool _isCurrentlyOpen;

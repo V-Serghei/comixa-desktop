@@ -216,6 +216,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     // Collections
     public ObservableCollection<LibraryItemViewModel> DisplayedItems { get; } = [];
     public ObservableCollection<LibraryRowViewModel> DisplayedRows { get; } = [];
+    public ObservableCollection<SeriesVariantViewModel> SeriesVariants { get; } = [];
     public ObservableCollection<ReaderPageViewModel> VerticalPages { get; } = [];
     public ObservableCollection<ShelfViewModel> Shelves { get; } = [];
     public ObservableCollection<LibraryFolderViewModel> LibraryFolders { get; } = [];
@@ -295,6 +296,11 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
         _libraryItemsPerRow = nextItemsPerRow;
         RebuildDisplayedRows();
+        if (_isInSeriesDetail)
+        {
+            RebuildSeriesVariants();
+            RaisePropertyChanged(nameof(HasSeriesVariants));
+        }
     }
 
     // Window title
@@ -379,6 +385,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public bool IsInSeriesDetail => _isInSeriesDetail;
     public string CurrentSeriesName => _currentSeriesName;
     public IReadOnlyList<ComicBookListItemViewModel> SeriesBooks => _seriesBooks;
+    public bool HasSeriesVariants => SeriesVariants.Count > 0;
     public bool IsLibraryEmpty => DisplayedItems.Count == 0 && !_isLoadingLibrary;
 
     // Shelf creation state
@@ -1007,9 +1014,11 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _isInSeriesDetail = true;
         _currentSeriesName = series.SeriesName;
         _seriesBooks = series.Books;
+        RebuildSeriesVariants();
         RaisePropertyChanged(nameof(IsInSeriesDetail));
         RaisePropertyChanged(nameof(CurrentSeriesName));
         RaisePropertyChanged(nameof(SeriesBooks));
+        RaisePropertyChanged(nameof(HasSeriesVariants));
     }
 
     private void BackToLibrary()
@@ -1201,6 +1210,115 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
                 DisplayedItems.Skip(index).Take(_libraryItemsPerRow).ToArray(),
                 _libraryItemsPerRow));
         }
+    }
+
+    private void RebuildSeriesVariants()
+    {
+        SeriesVariants.Clear();
+
+        var variants = _seriesBooks
+            .GroupBy(GetSeriesVariantKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group =>
+            {
+                var books = SortSeriesBooks(group).ToArray();
+                var first = books[0];
+                var rows = BuildSeriesDetailRows(books);
+                return new SeriesVariantViewModel(
+                    GetSeriesVariantTitle(first, books),
+                    GetSeriesVariantSubtitle(first, books),
+                    books,
+                    rows);
+            })
+            .OrderByDescending(variant => variant.Books.Count)
+            .ThenBy(variant => variant.Title, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        foreach (var variant in variants)
+        {
+            SeriesVariants.Add(variant);
+        }
+
+    }
+
+    private IReadOnlyList<LibraryRowViewModel> BuildSeriesDetailRows(IReadOnlyList<ComicBookListItemViewModel> books)
+    {
+        var rows = new List<LibraryRowViewModel>();
+        var items = books.Select(CreateSingleLibraryItem).Cast<LibraryItemViewModel>().ToArray();
+        for (var index = 0; index < items.Length; index += _libraryItemsPerRow)
+        {
+            rows.Add(new LibraryRowViewModel(
+                items.Skip(index).Take(_libraryItemsPerRow).ToArray(),
+                _libraryItemsPerRow));
+        }
+
+        return rows;
+    }
+
+    private static string GetSeriesVariantKey(ComicBookListItemViewModel book)
+    {
+        var path = book.FilePath;
+        if (ComicArchiveLocator.TrySplitNestedArchivePath(path, out var outerArchivePath, out _))
+        {
+            return $"archive:{outerArchivePath}";
+        }
+
+        var physicalPath = ComicArchiveLocator.GetPhysicalArchivePath(path);
+        var fileName = Path.GetFileName(physicalPath);
+        var lowerName = fileName.ToLowerInvariant();
+        if (lowerName.Contains("manga-chan"))
+        {
+            return $"source:manga-chan:{Directory.GetParent(physicalPath)?.FullName}";
+        }
+
+        return $"container:{physicalPath}";
+    }
+
+    private static string GetSeriesVariantTitle(
+        ComicBookListItemViewModel first,
+        IReadOnlyList<ComicBookListItemViewModel> books)
+    {
+        var physicalPath = ComicArchiveLocator.GetPhysicalArchivePath(first.FilePath);
+        var fileName = Path.GetFileNameWithoutExtension(physicalPath);
+        if (first.FilePath.Contains("::", StringComparison.Ordinal))
+        {
+            return ComicTitleParser.NormalizeDisplayName(fileName);
+        }
+
+        if (Path.GetFileName(physicalPath).Contains("manga-chan", StringComparison.OrdinalIgnoreCase))
+        {
+            return "manga-chan.me";
+        }
+
+        if (books.Count == 1)
+        {
+            return first.Title;
+        }
+
+        return ComicTitleParser.NormalizeDisplayName(Directory.GetParent(physicalPath)?.Name ?? fileName);
+    }
+
+    private static string GetSeriesVariantSubtitle(
+        ComicBookListItemViewModel first,
+        IReadOnlyList<ComicBookListItemViewModel> books)
+    {
+        var issueNumbers = books
+            .Select(book => book.IssueNumber)
+            .Where(number => number.HasValue)
+            .Select(number => number!.Value)
+            .Order()
+            .ToArray();
+        var range = issueNumbers.Length == 0
+            ? $"{books.Count} item{(books.Count == 1 ? "" : "s")}"
+            : issueNumbers.Length == 1
+                ? $"#{issueNumbers[0]}"
+                : $"#{issueNumbers[0]}-{issueNumbers[^1]}";
+        var formats = string.Join(", ", books
+            .Select(book => book.Format)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase));
+        var source = Path.GetFileName(ComicArchiveLocator.GetPhysicalArchivePath(first.FilePath));
+
+        return $"{range} · {formats} · {source}";
     }
 
     private IEnumerable<LibraryItemViewModel> BuildLibraryItems(List<ComicBookListItemViewModel> books)
@@ -1935,9 +2053,11 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             return null;
         }
 
+        var currentVariantKey = GetSeriesVariantKey(current);
         var orderedSeries = SortSeriesBooks(_allBooks
             .Where(book => book.SeriesName is not null
-                && book.SeriesName.Equals(current.SeriesName, StringComparison.OrdinalIgnoreCase)))
+                && book.SeriesName.Equals(current.SeriesName, StringComparison.OrdinalIgnoreCase)
+                && GetSeriesVariantKey(book).Equals(currentVariantKey, StringComparison.OrdinalIgnoreCase)))
             .ToArray();
 
         if (current.IssueNumber.HasValue)

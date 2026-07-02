@@ -335,58 +335,36 @@
                    Foreground="{DynamicResource ComixaOnSurfaceBrush}"
                    Margin="0,0,0,8" />
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-          <ItemsControl ItemsSource="{Binding SeriesBooks}">
+          <ItemsControl ItemsSource="{Binding SeriesVariants}">
             <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:ComicBookListItemViewModel">
-                <Button Command="{Binding $parent[UserControl].DataContext.OpenBookCommand}"
-                        CommandParameter="{Binding}"
-                        DoubleTapped="OnLibraryItemDoubleTapped"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Padding="0"
-                        Margin="0,0,0,4"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch"
-                        Cursor="Hand">
-                  <Border Padding="8,6"
-                          Background="{DynamicResource ComixaSurfaceVariantBrush}"
-                          CornerRadius="5"
-                          ClipToBounds="True">
-                    <Grid RowDefinitions="Auto,3" ColumnDefinitions="52,*">
-                      <Border CornerRadius="3"
-                              Width="46"
-                              Height="60"
-                              Background="{DynamicResource ComixaOutlineBrush}">
-                        <Image Source="{Binding CoverImage}"
-                               Stretch="UniformToFill"
-                               IsVisible="{Binding HasCoverImage}" />
-                      </Border>
-                      <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0" Spacing="2">
-                        <TextBlock Text="{Binding Title}"
-                                   Foreground="{DynamicResource ComixaOnSurfaceBrush}"
-                                   FontWeight="SemiBold"
-                                   FontSize="11"
-                                   TextWrapping="Wrap" />
-                        <TextBlock Text="{Binding Metadata}"
-                                   Foreground="{DynamicResource ComixaPrimaryBrush}"
-                                   FontSize="9.5"
-                                   TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding ReadStatusLabel}"
-                                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
-                                   FontSize="9"
-                                   IsVisible="{Binding HasProgress}" />
-                      </StackPanel>
-                      <ProgressBar Grid.Row="1"
-                                   Grid.ColumnSpan="2"
-                                   Value="{Binding ProgressValue}"
-                                   Maximum="1.0"
-                                   IsVisible="{Binding HasProgress}"
-                                   Foreground="{DynamicResource ComixaPrimaryBrush}"
-                                   Background="{DynamicResource ComixaOutlineBrush}"
-                                   Height="3" />
-                    </Grid>
-                  </Border>
-                </Button>
+              <DataTemplate x:DataType="vm:SeriesVariantViewModel">
+                <StackPanel Margin="0,0,0,18">
+                  <TextBlock Text="{Binding Title}"
+                             FontSize="13"
+                             FontWeight="SemiBold"
+                             Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                  <TextBlock Text="{Binding Subtitle}"
+                             FontSize="10"
+                             Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                             Margin="0,1,0,8"
+                             IsVisible="{Binding HasSubtitle}" />
+                  <ItemsControl ItemsSource="{Binding Rows}"
+                                HorizontalAlignment="Stretch">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:LibraryRowViewModel">
+                        <ItemsControl ItemsSource="{Binding Items}"
+                                      HorizontalAlignment="Stretch">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <UniformGrid Rows="1"
+                                           Columns="{Binding ColumnCount}" />
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
