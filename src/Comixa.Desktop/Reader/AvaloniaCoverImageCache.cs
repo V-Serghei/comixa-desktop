@@ -1,13 +1,26 @@
+using System.Collections.Concurrent;
+using System.IO.Compression;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Comixa.Core.Models;
+using Comixa.Reader.Archives;
+using Comixa.Reader.Scanning;
+using ImageMagick;
+using SharpCompress.Archives;
+using SharpCompress.Common;
+using SharpCompress.Readers;
 
 namespace Comixa.Desktop.Reader;
 
-public sealed class AvaloniaCoverImageCache : ICoverImageCache
+public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
 {
+    private const int CoverMaxWidth = 220;
+    private const int CoverMaxHeight = 330;
+    private static readonly byte[] RarSignature = [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07];
+
     private readonly IPagePreviewLoader _pagePreviewLoader;
     private readonly string _cacheDirectory;
+    private readonly ConcurrentDictionary<string, Lazy<Task<Bitmap?>>> _memoryCache = new(StringComparer.Ordinal);
 
     public AvaloniaCoverImageCache(IPagePreviewLoader pagePreviewLoader)
     {
@@ -21,9 +34,55 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache
 
     public async Task<Bitmap?> LoadCoverAsync(ComicBook comicBook, CancellationToken cancellationToken = default)
     {
+        var cacheKey = GetCoverCacheKey(comicBook);
+        var load = _memoryCache.GetOrAdd(
+            cacheKey,
+            _ => new Lazy<Task<Bitmap?>>(() => LoadCoverCoreAsync(comicBook, cacheKey, CancellationToken.None)));
+
+        try
+        {
+            var cover = await load.Value.WaitAsync(cancellationToken);
+            if (cover is null)
+            {
+                _memoryCache.TryRemove(cacheKey, out _);
+            }
+
+            return cover;
+        }
+        catch
+        {
+            if (load.IsValueCreated && load.Value.IsFaulted)
+            {
+                _memoryCache.TryRemove(cacheKey, out _);
+            }
+
+            throw;
+        }
+    }
+
+    public void Dispose()
+    {
+        foreach (var load in _memoryCache.Values)
+        {
+            if (load.IsValueCreated &&
+                load.Value.IsCompletedSuccessfully &&
+                load.Value.Result is not null)
+            {
+                load.Value.Result.Dispose();
+            }
+        }
+
+        _memoryCache.Clear();
+    }
+
+    private async Task<Bitmap?> LoadCoverCoreAsync(
+        ComicBook comicBook,
+        string cacheKey,
+        CancellationToken cancellationToken)
+    {
         Directory.CreateDirectory(_cacheDirectory);
 
-        var cacheFile = Path.Combine(_cacheDirectory, $"{comicBook.Id}.png");
+        var cacheFile = Path.Combine(_cacheDirectory, $"{cacheKey}.png");
         if (File.Exists(cacheFile))
         {
             try
@@ -32,20 +91,21 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache
             }
             catch
             {
-                // Corrupt cache files are regenerated from the source page.
+                TryDelete(cacheFile);
             }
         }
 
-        var fullPage = await _pagePreviewLoader.LoadPageAsync(comicBook, 0, cancellationToken);
-        if (fullPage is null)
+        DeleteOldCoverFiles(comicBook.Id, cacheFile);
+
+        var thumbnail = await TryCreateThumbnailFromSourceAsync(comicBook, cancellationToken);
+        if (thumbnail is null)
         {
-            return null;
+            thumbnail = await TryCreateThumbnailFromPageLoaderAsync(comicBook, cancellationToken);
         }
 
-        var thumbnail = await Task.Run(() => CreateThumbnail(fullPage, 200, 300), cancellationToken);
-        if (!ReferenceEquals(thumbnail, fullPage))
+        if (thumbnail is null)
         {
-            fullPage.Dispose();
+            return null;
         }
 
         try
@@ -54,21 +114,226 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache
         }
         catch
         {
-            // Cover cache writes are best-effort; reading should still work.
         }
 
         return thumbnail;
     }
 
-    private static Bitmap CreateThumbnail(Bitmap source, int maxWidth, int maxHeight)
+    private async Task<Bitmap?> TryCreateThumbnailFromSourceAsync(
+        ComicBook comicBook,
+        CancellationToken cancellationToken)
     {
-        if (source.PixelSize.Width <= maxWidth && source.PixelSize.Height <= maxHeight)
+        try
         {
-            return source;
+            return comicBook.Format switch
+            {
+                ComicFormat.Cbz or ComicFormat.Zip => await TryCreateArchiveThumbnailAsync(comicBook.FilePath, cancellationToken),
+                ComicFormat.Cbr or ComicFormat.Rar => await TryCreateRarThumbnailAsync(comicBook.FilePath, cancellationToken),
+                ComicFormat.ImageFolder => await TryCreateImageFolderThumbnailAsync(comicBook.FilePath, cancellationToken),
+                _ => null
+            };
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or InvalidDataException
+            or InvalidFormatException
+            or ArgumentException
+            or InvalidOperationException
+            or NotSupportedException
+            or MagickException)
+        {
+            return null;
+        }
+    }
+
+    private static async Task<Bitmap?> TryCreateArchiveThumbnailAsync(string archivePath, CancellationToken cancellationToken)
+    {
+        using var archive = ZipFile.OpenRead(archivePath);
+        var entry = archive.Entries
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name) && LocalComicLibraryScanner.IsImageFile(item.FullName))
+            .OrderBy(item => item.FullName, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+
+        if (entry is null)
+        {
+            return null;
         }
 
-        var scaleX = (double)maxWidth / source.PixelSize.Width;
-        var scaleY = (double)maxHeight / source.PixelSize.Height;
+        await using var entryStream = entry.Open();
+        return await CreateMagickThumbnailAsync(entryStream, cancellationToken);
+    }
+
+    private static async Task<Bitmap?> TryCreateRarThumbnailAsync(string archivePath, CancellationToken cancellationToken)
+    {
+        using var archiveStream = TryOpenRarArchiveStream(archivePath);
+        if (archiveStream is null)
+        {
+            return null;
+        }
+
+        using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
+        {
+            LeaveStreamOpen = true,
+            ExtensionHint = ".rar"
+        });
+
+        var entry = archive.Entries
+            .Where(item => !item.IsDirectory
+                && !string.IsNullOrWhiteSpace(item.Key)
+                && LocalComicLibraryScanner.IsImageFile(item.Key))
+            .OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+
+        if (entry is null)
+        {
+            return null;
+        }
+
+        using var imageStream = new MemoryStream();
+        entry.WriteTo(imageStream);
+        imageStream.Position = 0;
+        return await CreateMagickThumbnailAsync(imageStream, cancellationToken);
+    }
+
+    private static async Task<Bitmap?> TryCreateImageFolderThumbnailAsync(string folderPath, CancellationToken cancellationToken)
+    {
+        var imagePath = Directory
+            .EnumerateFiles(folderPath)
+            .Where(LocalComicLibraryScanner.IsImageFile)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+
+        if (imagePath is null)
+        {
+            return null;
+        }
+
+        await using var stream = File.OpenRead(imagePath);
+        return await CreateMagickThumbnailAsync(stream, cancellationToken);
+    }
+
+    private static async Task<Bitmap?> CreateMagickThumbnailAsync(Stream source, CancellationToken cancellationToken)
+    {
+        using var memory = new MemoryStream();
+        await source.CopyToAsync(memory, cancellationToken);
+
+        using var image = new MagickImage(memory.ToArray());
+        image.AutoOrient();
+        image.Thumbnail(CoverMaxWidth, CoverMaxHeight);
+        image.Format = MagickFormat.Png;
+        return new Bitmap(new MemoryStream(image.ToByteArray()));
+    }
+
+    private static Stream? TryOpenArchiveStream(string archivePath)
+    {
+        try
+        {
+            if (!ComicArchiveLocator.TrySplitNestedArchivePath(archivePath, out var outerArchivePath, out var nestedEntryName))
+            {
+                return File.OpenRead(archivePath);
+            }
+
+            using var outerArchive = ZipFile.OpenRead(outerArchivePath);
+            var nestedEntry = outerArchive.GetEntry(nestedEntryName);
+            if (nestedEntry is null)
+            {
+                return null;
+            }
+
+            var memory = new MemoryStream((int)Math.Min(nestedEntry.Length, int.MaxValue));
+            using (var nestedStream = nestedEntry.Open())
+            {
+                nestedStream.CopyTo(memory);
+            }
+
+            memory.Position = 0;
+            return memory;
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or InvalidDataException
+            or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static Stream? TryOpenRarArchiveStream(string archivePath)
+    {
+        var stream = TryOpenArchiveStream(archivePath);
+        if (stream is null)
+        {
+            return null;
+        }
+
+        if (TryMoveToRarSignature(stream))
+        {
+            return stream;
+        }
+
+        stream.Dispose();
+        return null;
+    }
+
+    private static bool TryMoveToRarSignature(Stream stream)
+    {
+        if (!stream.CanSeek)
+        {
+            return true;
+        }
+
+        var start = stream.Position;
+        Span<byte> header = stackalloc byte[RarSignature.Length];
+        var read = stream.Read(header);
+        stream.Position = start;
+        if (read == RarSignature.Length && header.SequenceEqual(RarSignature))
+        {
+            return true;
+        }
+
+        var bufferLength = (int)Math.Min(stream.Length - start, 1024L * 1024L);
+        var buffer = new byte[bufferLength];
+        read = stream.Read(buffer, 0, buffer.Length);
+        for (var index = 0; index <= read - RarSignature.Length; index++)
+        {
+            if (!buffer.AsSpan(index, RarSignature.Length).SequenceEqual(RarSignature))
+            {
+                continue;
+            }
+
+            stream.Position = start + index;
+            return true;
+        }
+
+        stream.Position = start;
+        return false;
+    }
+
+    private async Task<Bitmap?> TryCreateThumbnailFromPageLoaderAsync(
+        ComicBook comicBook,
+        CancellationToken cancellationToken)
+    {
+        var fullPage = _pagePreviewLoader is IRenderedPageLoader renderedPageLoader
+            ? await renderedPageLoader.LoadRenderedPageAsync(comicBook, 0, new PixelSize(700, 1100), cancellationToken)
+            : await _pagePreviewLoader.LoadPageAsync(comicBook, 0, cancellationToken);
+
+        if (fullPage is null)
+        {
+            return null;
+        }
+
+        return await Task.Run(() => CreateAvaloniaThumbnail(fullPage), cancellationToken);
+    }
+
+    private static Bitmap CreateAvaloniaThumbnail(Bitmap source)
+    {
+        if (source.PixelSize.Width <= CoverMaxWidth && source.PixelSize.Height <= CoverMaxHeight)
+        {
+            return source.CreateScaledBitmap(source.PixelSize, BitmapInterpolationMode.LowQuality);
+        }
+
+        var scaleX = (double)CoverMaxWidth / source.PixelSize.Width;
+        var scaleY = (double)CoverMaxHeight / source.PixelSize.Height;
         var scale = Math.Min(scaleX, scaleY);
 
         var newWidth = Math.Max(1, (int)(source.PixelSize.Width * scale));
@@ -77,5 +342,73 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache
         return source.CreateScaledBitmap(
             new PixelSize(newWidth, newHeight),
             BitmapInterpolationMode.LowQuality);
+    }
+
+    private string GetCoverCacheKey(ComicBook comicBook)
+    {
+        return $"{comicBook.Id:N}-{GetSourceStamp(comicBook.FilePath)}";
+    }
+
+    private static string GetSourceStamp(string path)
+    {
+        try
+        {
+            var physicalPath = ComicArchiveLocator.GetPhysicalArchivePath(path);
+            var pathHash = GetStablePathHash(path);
+            if (File.Exists(physicalPath))
+            {
+                var file = new FileInfo(physicalPath);
+                return $"{pathHash}-{file.LastWriteTimeUtc.Ticks:x}-{file.Length:x}";
+            }
+
+            if (Directory.Exists(physicalPath))
+            {
+                return $"{pathHash}-{Directory.GetLastWriteTimeUtc(physicalPath).Ticks:x}";
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
+
+        return "unknown";
+    }
+
+    private static string GetStablePathHash(string path)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(path);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes))[..16];
+    }
+
+    private void DeleteOldCoverFiles(Guid comicBookId, string keepFile)
+    {
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(_cacheDirectory, $"{comicBookId:N}-*.png"))
+            {
+                if (!file.Equals(keepFile, StringComparison.OrdinalIgnoreCase))
+                {
+                    TryDelete(file);
+                }
+            }
+
+            TryDelete(Path.Combine(_cacheDirectory, $"{comicBookId}.png"));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private static void TryDelete(string file)
+    {
+        try
+        {
+            if (File.Exists(file))
+            {
+                File.Delete(file);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 }

@@ -8,7 +8,7 @@ MVP 1 focuses on the Local Desktop Reader Core:
 
 - Select local folders.
 - Scan local comic files.
-- Read CBZ/ZIP archives.
+- Read CBZ/ZIP archives and PDF files.
 - Show a library with covers.
 - Open a reader screen with page navigation.
 - Support zoom and fit modes.
