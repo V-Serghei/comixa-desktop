@@ -386,6 +386,11 @@
                     Command="{Binding PreviousPageCommand}"
                     Classes="readerButton"
                     ToolTip.Tip="Previous page" />
+            <Button Content="{Binding PreviousSeriesBookActionLabel}"
+                    Command="{Binding OpenPreviousSeriesBookCommand}"
+                    IsVisible="{Binding HasPreviousSeriesBookPrompt}"
+                    Classes="readerPrimaryButton"
+                    ToolTip.Tip="Open the previous part in this series" />
             <Button Content="Next"
                     Command="{Binding NextPageCommand}"
                     Classes="readerButton"

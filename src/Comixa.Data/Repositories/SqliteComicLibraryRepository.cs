@@ -57,7 +57,10 @@ public sealed class SqliteComicLibraryRepository : IComicLibraryRepository
                 series_name  = excluded.series_name,
                 issue_number = excluded.issue_number,
                 format       = excluded.format,
-                page_count   = excluded.page_count,
+                page_count   = CASE
+                    WHEN excluded.page_count > 0 THEN excluded.page_count
+                    ELSE comics.page_count
+                END,
                 cover_path   = excluded.cover_path
             """;
 

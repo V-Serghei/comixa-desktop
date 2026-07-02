@@ -8,12 +8,18 @@ using Comixa.Reader.Scanning;
 using ImageMagick;
 using PDFtoImage;
 using PDFtoImage.Exceptions;
+using SharpCompress.Archives;
 using SharpCompress.Common;
 using SharpCompress.Readers;
 
 namespace Comixa.Desktop.Reader;
 
-public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLoader, IPageCacheMaintenance, IDisposable
+public sealed class LocalPagePreviewLoader :
+    IPagePreviewLoader,
+    IRenderedPageLoader,
+    IPageCacheMaintenance,
+    IComicPageCountProvider,
+    IDisposable
 {
     private const int MaxCachedPages = 256;
     private const int MaxRenderedPages = 384;
@@ -133,6 +139,40 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLo
         }
 
         return pages;
+    }
+
+    public Task<int> GetPageCountAsync(ComicBook comicBook, CancellationToken cancellationToken = default)
+    {
+        if (comicBook.PageCount > 0)
+        {
+            return Task.FromResult(comicBook.PageCount);
+        }
+
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                return comicBook.Format switch
+                {
+                    ComicFormat.Cbz or ComicFormat.Zip => GetArchiveImageEntryNames(comicBook.FilePath).Length,
+                    ComicFormat.Cbr or ComicFormat.Rar => GetRarImageEntryNames(comicBook.FilePath).Length,
+                    ComicFormat.ImageFolder => GetFolderImagePaths(comicBook.FilePath).Length,
+                    ComicFormat.Pdf => GetPdfPageCount(comicBook.FilePath),
+                    _ => 0
+                };
+            }
+            catch (Exception exception) when (exception is IOException
+                or UnauthorizedAccessException
+                or InvalidDataException
+                or ArgumentException
+                or InvalidOperationException
+                or NotSupportedException)
+            {
+                return 0;
+            }
+        }, cancellationToken);
     }
 
     public async Task PreloadPagesAsync(ComicBook comicBook, int startPageIndex, CancellationToken cancellationToken = default)
@@ -440,27 +480,25 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLo
             return null;
         }
 
-        using var reader = ReaderFactory.OpenReader(archiveStream, new ReaderOptions
+        using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
         {
             LeaveStreamOpen = true,
             ExtensionHint = ".rar"
         });
 
-        while (reader.MoveToNextEntry())
+        var entry = archive.Entries.FirstOrDefault(item =>
+            !item.IsDirectory &&
+            item.Key is not null &&
+            item.Key.Equals(entryName, StringComparison.OrdinalIgnoreCase));
+        if (entry is null)
         {
-            var entry = reader.Entry;
-            if (entry.IsDirectory
-                || entry.Key is null
-                || !entry.Key.Equals(entryName, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            using var entryStream = reader.OpenEntryStream();
-            return await LoadBitmapAsync(entryStream, cancellationToken);
+            return null;
         }
 
-        return null;
+        using var pageStream = new MemoryStream();
+        entry.WriteTo(pageStream);
+        pageStream.Position = 0;
+        return await LoadBitmapAsync(pageStream, cancellationToken);
     }
 
     private static async Task<Bitmap?> LoadImageFolderPageAsync(string folderPath, int pageIndex, CancellationToken cancellationToken)
@@ -502,6 +540,24 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLo
         }
     }
 
+    private static int GetPdfPageCount(string pdfPath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(pdfPath);
+            return Math.Max(0, Conversion.GetPageCount(stream));
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or PdfException
+            or DllNotFoundException
+            or BadImageFormatException)
+        {
+            return 0;
+        }
+    }
+
     private static string[] GetArchiveImageEntryNames(string archivePath)
     {
         return ArchiveImageEntryNames.GetOrAdd(archivePath, path =>
@@ -534,30 +590,23 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLo
                     return [];
                 }
 
-                using var reader = ReaderFactory.OpenReader(archiveStream, new ReaderOptions
+                using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
                 {
                     LeaveStreamOpen = true,
                     ExtensionHint = ".rar"
                 });
 
-                var entryNames = new List<string>();
-                while (reader.MoveToNextEntry())
-                {
-                    var entry = reader.Entry;
-                    if (!entry.IsDirectory
+                return archive.Entries
+                    .Where(entry => !entry.IsDirectory
                         && !string.IsNullOrWhiteSpace(entry.Key)
                         && LocalComicLibraryScanner.IsImageFile(entry.Key))
-                    {
-                        entryNames.Add(entry.Key);
-                    }
-                }
-
-                return entryNames
+                    .Select(entry => entry.Key!)
                     .Order(StringComparer.OrdinalIgnoreCase)
                     .ToArray();
             }
             catch (Exception exception) when (exception is IOException
                 or InvalidFormatException
+                or ArgumentException
                 or InvalidOperationException
                 or NotSupportedException)
             {

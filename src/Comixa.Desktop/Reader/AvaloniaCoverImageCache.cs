@@ -6,6 +6,9 @@ using Comixa.Core.Models;
 using Comixa.Reader.Archives;
 using Comixa.Reader.Scanning;
 using ImageMagick;
+using SharpCompress.Archives;
+using SharpCompress.Common;
+using SharpCompress.Readers;
 
 namespace Comixa.Desktop.Reader;
 
@@ -124,11 +127,19 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
             return comicBook.Format switch
             {
                 ComicFormat.Cbz or ComicFormat.Zip => await TryCreateArchiveThumbnailAsync(comicBook.FilePath, cancellationToken),
+                ComicFormat.Cbr or ComicFormat.Rar => await TryCreateRarThumbnailAsync(comicBook.FilePath, cancellationToken),
                 ComicFormat.ImageFolder => await TryCreateImageFolderThumbnailAsync(comicBook.FilePath, cancellationToken),
                 _ => null
             };
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or MagickException)
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or InvalidDataException
+            or InvalidFormatException
+            or ArgumentException
+            or InvalidOperationException
+            or NotSupportedException
+            or MagickException)
         {
             return null;
         }
@@ -149,6 +160,38 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
 
         await using var entryStream = entry.Open();
         return await CreateMagickThumbnailAsync(entryStream, cancellationToken);
+    }
+
+    private static async Task<Bitmap?> TryCreateRarThumbnailAsync(string archivePath, CancellationToken cancellationToken)
+    {
+        using var archiveStream = TryOpenArchiveStream(archivePath);
+        if (archiveStream is null)
+        {
+            return null;
+        }
+
+        using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
+        {
+            LeaveStreamOpen = true,
+            ExtensionHint = ".rar"
+        });
+
+        var entry = archive.Entries
+            .Where(item => !item.IsDirectory
+                && !string.IsNullOrWhiteSpace(item.Key)
+                && LocalComicLibraryScanner.IsImageFile(item.Key))
+            .OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+
+        if (entry is null)
+        {
+            return null;
+        }
+
+        using var imageStream = new MemoryStream();
+        entry.WriteTo(imageStream);
+        imageStream.Position = 0;
+        return await CreateMagickThumbnailAsync(imageStream, cancellationToken);
     }
 
     private static async Task<Bitmap?> TryCreateImageFolderThumbnailAsync(string folderPath, CancellationToken cancellationToken)
@@ -178,6 +221,40 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
         image.Thumbnail(CoverMaxWidth, CoverMaxHeight);
         image.Format = MagickFormat.Png;
         return new Bitmap(new MemoryStream(image.ToByteArray()));
+    }
+
+    private static Stream? TryOpenArchiveStream(string archivePath)
+    {
+        try
+        {
+            if (!ComicArchiveLocator.TrySplitNestedArchivePath(archivePath, out var outerArchivePath, out var nestedEntryName))
+            {
+                return File.OpenRead(archivePath);
+            }
+
+            using var outerArchive = ZipFile.OpenRead(outerArchivePath);
+            var nestedEntry = outerArchive.GetEntry(nestedEntryName);
+            if (nestedEntry is null)
+            {
+                return null;
+            }
+
+            var memory = new MemoryStream((int)Math.Min(nestedEntry.Length, int.MaxValue));
+            using (var nestedStream = nestedEntry.Open())
+            {
+                nestedStream.CopyTo(memory);
+            }
+
+            memory.Position = 0;
+            return memory;
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or InvalidDataException
+            or ArgumentException)
+        {
+            return null;
+        }
     }
 
     private async Task<Bitmap?> TryCreateThumbnailFromPageLoaderAsync(

@@ -15,7 +15,7 @@
               HorizontalAlignment="Center"
               Cursor="Hand">
         <Button.ContextMenu>
-          <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+          <ContextMenu Opened="OnLibraryItemContextMenuOpened">
             <MenuItem Header="Open" Command="{Binding OpenCommand}" />
             <MenuItem Header="Open Fullscreen" Command="{Binding OpenFullscreenCommand}" />
             <Separator />
@@ -23,15 +23,7 @@
             <MenuItem Header="Mark as Unread" Command="{Binding MarkAsUnreadCommand}" />
             <Separator />
             <MenuItem Header="Add to shelf..."
-                      ItemsSource="{Binding ShelfItems}"
-                      IsVisible="{Binding HasShelfItems}">
-              <MenuItem.ItemContainerTheme>
-                <ControlTheme TargetType="MenuItem">
-                  <Setter Property="Header" Value="{ReflectionBinding MenuText}" />
-                  <Setter Property="Command" Value="{ReflectionBinding ToggleCommand}" />
-                </ControlTheme>
-              </MenuItem.ItemContainerTheme>
-            </MenuItem>
+                      IsVisible="{Binding HasShelfItems}" />
             <MenuItem Header="No shelves yet"
                       IsVisible="{Binding !HasShelfItems}"
                       IsEnabled="False" />
@@ -208,7 +200,10 @@
       </StackPanel>
     </Grid>
 
-    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+    <Grid Grid.Row="1"
+          ColumnDefinitions="*,Auto"
+          Margin="0,0,0,8"
+          IsVisible="{Binding IsLibraryToolsVisible}">
       <TextBox Text="{Binding SearchQuery}" PlaceholderText="Search..." />
       <Button Grid.Column="1"
               Content="Clear"
@@ -218,7 +213,10 @@
               Margin="4,0,0,0" />
     </Grid>
 
-    <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
+    <WrapPanel Grid.Row="2"
+               Orientation="Horizontal"
+               Margin="0,0,0,6"
+               IsVisible="{Binding IsLibraryToolsVisible}">
       <ToggleButton Content="Unread"
                     Margin="0,0,4,4"
                     IsChecked="{Binding ShowUnreadOnly, Mode=OneWay}"
@@ -241,7 +239,11 @@
                     Command="{Binding ToggleCbrFilterCommand}" />
     </WrapPanel>
 
-    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="6" Margin="0,0,0,8">
+    <StackPanel Grid.Row="3"
+                Orientation="Horizontal"
+                Spacing="6"
+                Margin="0,0,0,8"
+                IsVisible="{Binding IsLibraryToolsVisible}">
       <TextBlock Text="Sort:"
                  VerticalAlignment="Center"
                  FontSize="11"
@@ -304,10 +306,12 @@
           </ListBox.ItemsPanel>
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:LibraryRowViewModel">
-              <ItemsControl ItemsSource="{Binding Items}">
+              <ItemsControl ItemsSource="{Binding Items}"
+                            HorizontalAlignment="Stretch">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
-                    <UniformGrid Rows="1" />
+                    <UniformGrid Rows="1"
+                                 Columns="{Binding ColumnCount}" />
                   </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
               </ItemsControl>

@@ -23,7 +23,7 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
         _searchText = $"{Title}\n{SeriesName}\n{FilePath}".ToUpperInvariant();
     }
 
-    public ComicBook ComicBook { get; }
+    public ComicBook ComicBook { get; private set; }
 
     public Bitmap? CoverImage
     {
@@ -57,7 +57,7 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
     public string? SeriesName { get; }
     public int? IssueNumber { get; }
     public string Format { get; }
-    public int PageCount { get; }
+    public int PageCount { get; private set; }
     public string FilePath { get; }
 
     public string IssueLabel => IssueNumber is null ? "" : $"#{IssueNumber}";
@@ -92,6 +92,23 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
     }
 
     public void SetCoverImage(Bitmap? coverImage) => CoverImage = coverImage;
+
+    public void SetPageCount(int pageCount)
+    {
+        pageCount = Math.Max(0, pageCount);
+        if (PageCount == pageCount) return;
+
+        ComicBook = ComicBook with { PageCount = pageCount };
+        PageCount = pageCount;
+        RaisePropertyChanged(nameof(ComicBook));
+        RaisePropertyChanged(nameof(PageCount));
+        RaisePropertyChanged(nameof(Metadata));
+        RaisePropertyChanged(nameof(ProgressValue));
+        RaisePropertyChanged(nameof(IsRead));
+        RaisePropertyChanged(nameof(IsStarted));
+        RaisePropertyChanged(nameof(IsUnread));
+        RaisePropertyChanged(nameof(ReadStatusLabel));
+    }
 
     public void SetProgress(ReadingProgress? progress)
     {

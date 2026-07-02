@@ -26,7 +26,7 @@
                     Padding="16,8"
                     Margin="0,1"
                     BorderThickness="0">
-              <TextBlock Text="All Books" FontSize="13" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+              <TextBlock Text="Home" FontSize="13" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
             </Button>
           </Panel>
 

@@ -1,10 +1,6 @@
 using System.IO.Compression;
 using Comixa.Core.Models;
 using Comixa.Reader.Archives;
-using PDFtoImage;
-using PDFtoImage.Exceptions;
-using SharpCompress.Common;
-using SharpCompress.Readers;
 
 namespace Comixa.Reader.Scanning;
 
@@ -127,12 +123,7 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
                 fileInfo.Name,
                 detectedFormat,
                 fileInfo.Length,
-                detectedFormat switch
-                {
-                    ComicFormat.Pdf => CountPdfPages(path),
-                    ComicFormat.Cbr or ComicFormat.Rar => CountRarPages(path),
-                    _ => 0
-                });
+                0);
         }
     }
 
@@ -216,19 +207,12 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
         }
 
         var nestedPath = ComicArchiveLocator.CreateNestedArchivePath(outerArchivePath, entry.FullName);
-        var pageCount = nestedFormat.Value switch
-        {
-            ComicFormat.Cbz or ComicFormat.Zip => CountNestedZipPages(entry),
-            ComicFormat.Cbr or ComicFormat.Rar => CountNestedRarPages(entry),
-            _ => 0
-        };
-
         return new ScannedComicFile(
             nestedPath,
             Path.GetFileName(entry.FullName),
             nestedFormat.Value,
             entry.Length,
-            pageCount,
+            0,
             ResolveNestedTitleMetadata(outerArchivePath, entry.FullName));
     }
 
@@ -285,123 +269,6 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
         return DetectedOnlyExtensions.TryGetValue(extension, out var format)
             ? format
             : null;
-    }
-
-    private static int CountNestedZipPages(ZipArchiveEntry entry)
-    {
-        try
-        {
-            using var memory = new MemoryStream();
-            using (var entryStream = entry.Open())
-            {
-                entryStream.CopyTo(memory);
-            }
-
-            memory.Position = 0;
-            using var archive = new ZipArchive(memory, ZipArchiveMode.Read);
-            return archive.Entries.Count(item =>
-                !string.IsNullOrWhiteSpace(item.Name)
-                && ImageExtensions.Contains(Path.GetExtension(item.FullName)));
-        }
-        catch (Exception exception) when (exception is IOException or InvalidDataException or NotSupportedException)
-        {
-            return 0;
-        }
-    }
-
-    private static int CountNestedRarPages(ZipArchiveEntry entry)
-    {
-        try
-        {
-            using var memory = new MemoryStream();
-            using (var entryStream = entry.Open())
-            {
-                entryStream.CopyTo(memory);
-            }
-
-            memory.Position = 0;
-            return CountRarPages(memory);
-        }
-        catch (Exception exception) when (exception is IOException
-            or InvalidFormatException
-            or InvalidOperationException
-            or NotSupportedException)
-        {
-            return 0;
-        }
-    }
-
-    private static int CountRarPages(string rarPath)
-    {
-        try
-        {
-            using var stream = File.OpenRead(rarPath);
-            return CountRarPages(stream);
-        }
-        catch (Exception exception) when (exception is IOException
-            or UnauthorizedAccessException
-            or InvalidFormatException
-            or InvalidOperationException
-            or NotSupportedException)
-        {
-            return 0;
-        }
-    }
-
-    private static int CountRarPages(Stream rarStream)
-    {
-        using var reader = ReaderFactory.OpenReader(rarStream, new ReaderOptions
-        {
-            LeaveStreamOpen = true,
-            ExtensionHint = ".rar"
-        });
-
-        var count = 0;
-        while (reader.MoveToNextEntry())
-        {
-            var entry = reader.Entry;
-            if (!entry.IsDirectory
-                && !string.IsNullOrWhiteSpace(entry.Key)
-                && ImageExtensions.Contains(Path.GetExtension(entry.Key)))
-            {
-                count++;
-            }
-        }
-
-        return count;
-    }
-
-    private static int CountPdfPages(string pdfPath)
-    {
-        try
-        {
-            using var stream = File.OpenRead(pdfPath);
-            return Math.Max(0, Conversion.GetPageCount(stream));
-        }
-        catch (IOException)
-        {
-            return 0;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return 0;
-        }
-        catch (ArgumentException)
-        {
-            return 0;
-        }
-        catch (PdfException)
-        {
-            return 0;
-        }
-        catch (DllNotFoundException)
-        {
-            return 0;
-        }
-        catch (BadImageFormatException)
-        {
-            return 0;
-        }
     }
 
     private static IEnumerable<string> EnumerateFiles(string rootFolder, CancellationToken cancellationToken)
