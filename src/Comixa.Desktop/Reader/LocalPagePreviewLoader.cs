@@ -3,10 +3,13 @@ using System.IO.Compression;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Comixa.Core.Models;
+using Comixa.Reader.Archives;
 using Comixa.Reader.Scanning;
 using ImageMagick;
 using PDFtoImage;
 using PDFtoImage.Exceptions;
+using SharpCompress.Common;
+using SharpCompress.Readers;
 
 namespace Comixa.Desktop.Reader;
 
@@ -145,7 +148,8 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLo
             var hotPages = BuildHotPreloadOrder(comicBook.PageCount, startPageIndex).ToArray();
             await PreloadPageBatchAsync(comicBook, hotPages, cancellationToken);
 
-            if (comicBook.Format is ComicFormat.Cbz or ComicFormat.Zip)
+            if (comicBook.Format is ComicFormat.Cbz or ComicFormat.Zip &&
+                !ComicArchiveLocator.TrySplitNestedArchivePath(comicBook.FilePath, out _, out _))
             {
                 await PreloadArchivePagesAsync(comicBook, startPageIndex, cancellationToken);
                 return;
@@ -229,6 +233,7 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLo
                 var page = comicBook.Format switch
                 {
                     ComicFormat.Cbz or ComicFormat.Zip => await LoadArchivePageAsync(comicBook.FilePath, pageIndex, cancellationToken),
+                    ComicFormat.Cbr or ComicFormat.Rar => await LoadRarPageAsync(comicBook.FilePath, pageIndex, cancellationToken),
                     ComicFormat.ImageFolder => await LoadImageFolderPageAsync(comicBook.FilePath, pageIndex, cancellationToken),
                     ComicFormat.Pdf => await LoadPdfPageAsync(comicBook.FilePath, pageIndex, cancellationToken),
                     _ => null
@@ -247,7 +252,13 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLo
 
                 return page;
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidDataException)
+            catch (Exception exception) when (exception is IOException
+                or UnauthorizedAccessException
+                or ArgumentException
+                or InvalidDataException
+                or InvalidFormatException
+                or InvalidOperationException
+                or NotSupportedException)
             {
                 return null;
             }
@@ -397,7 +408,13 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLo
             return null;
         }
 
-        using var archive = ZipFile.OpenRead(archivePath);
+        using var archiveStream = TryOpenArchiveStream(archivePath);
+        if (archiveStream is null)
+        {
+            return null;
+        }
+
+        using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
         var entry = archive.GetEntry(entryName);
         if (entry is null)
         {
@@ -406,6 +423,44 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLo
 
         await using var entryStream = entry.Open();
         return await LoadBitmapAsync(entryStream, cancellationToken);
+    }
+
+    private static async Task<Bitmap?> LoadRarPageAsync(string archivePath, int pageIndex, CancellationToken cancellationToken)
+    {
+        var entryName = GetRarImageEntryNames(archivePath).ElementAtOrDefault(pageIndex);
+
+        if (entryName is null)
+        {
+            return null;
+        }
+
+        using var archiveStream = TryOpenArchiveStream(archivePath);
+        if (archiveStream is null)
+        {
+            return null;
+        }
+
+        using var reader = ReaderFactory.OpenReader(archiveStream, new ReaderOptions
+        {
+            LeaveStreamOpen = true,
+            ExtensionHint = ".rar"
+        });
+
+        while (reader.MoveToNextEntry())
+        {
+            var entry = reader.Entry;
+            if (entry.IsDirectory
+                || entry.Key is null
+                || !entry.Key.Equals(entryName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            using var entryStream = reader.OpenEntryStream();
+            return await LoadBitmapAsync(entryStream, cancellationToken);
+        }
+
+        return null;
     }
 
     private static async Task<Bitmap?> LoadImageFolderPageAsync(string folderPath, int pageIndex, CancellationToken cancellationToken)
@@ -451,7 +506,13 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLo
     {
         return ArchiveImageEntryNames.GetOrAdd(archivePath, path =>
         {
-            using var archive = ZipFile.OpenRead(path);
+            using var archiveStream = TryOpenArchiveStream(path);
+            if (archiveStream is null)
+            {
+                return [];
+            }
+
+            using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
             return archive.Entries
                 .Where(entry => !string.IsNullOrWhiteSpace(entry.Name)
                     && LocalComicLibraryScanner.IsImageFile(entry.FullName))
@@ -459,6 +520,84 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLo
                 .Select(entry => entry.FullName)
                 .ToArray();
         });
+    }
+
+    private static string[] GetRarImageEntryNames(string archivePath)
+    {
+        return ArchiveImageEntryNames.GetOrAdd(archivePath, path =>
+        {
+            try
+            {
+                using var archiveStream = TryOpenArchiveStream(path);
+                if (archiveStream is null)
+                {
+                    return [];
+                }
+
+                using var reader = ReaderFactory.OpenReader(archiveStream, new ReaderOptions
+                {
+                    LeaveStreamOpen = true,
+                    ExtensionHint = ".rar"
+                });
+
+                var entryNames = new List<string>();
+                while (reader.MoveToNextEntry())
+                {
+                    var entry = reader.Entry;
+                    if (!entry.IsDirectory
+                        && !string.IsNullOrWhiteSpace(entry.Key)
+                        && LocalComicLibraryScanner.IsImageFile(entry.Key))
+                    {
+                        entryNames.Add(entry.Key);
+                    }
+                }
+
+                return entryNames
+                    .Order(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+            }
+            catch (Exception exception) when (exception is IOException
+                or InvalidFormatException
+                or InvalidOperationException
+                or NotSupportedException)
+            {
+                return [];
+            }
+        });
+    }
+
+    private static Stream? TryOpenArchiveStream(string archivePath)
+    {
+        try
+        {
+            if (!ComicArchiveLocator.TrySplitNestedArchivePath(archivePath, out var outerArchivePath, out var nestedEntryName))
+            {
+                return File.OpenRead(archivePath);
+            }
+
+            using var outerArchive = ZipFile.OpenRead(outerArchivePath);
+            var nestedEntry = outerArchive.GetEntry(nestedEntryName);
+            if (nestedEntry is null)
+            {
+                return null;
+            }
+
+            var memory = new MemoryStream((int)Math.Min(nestedEntry.Length, int.MaxValue));
+            using (var nestedStream = nestedEntry.Open())
+            {
+                nestedStream.CopyTo(memory);
+            }
+
+            memory.Position = 0;
+            return memory;
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or InvalidDataException
+            or ArgumentException)
+        {
+            return null;
+        }
     }
 
     private static string[] GetFolderImagePaths(string folderPath)
@@ -517,7 +656,8 @@ public sealed class LocalPagePreviewLoader : IPagePreviewLoader, IRenderedPageLo
 
     private static string GetPageCacheKeyPrefix(ComicBook comicBook)
     {
-        var lastWriteTicks = File.GetLastWriteTimeUtc(comicBook.FilePath).Ticks;
+        var physicalPath = ComicArchiveLocator.GetPhysicalArchivePath(comicBook.FilePath);
+        var lastWriteTicks = File.GetLastWriteTimeUtc(physicalPath).Ticks;
         return $"{comicBook.FilePath}|{lastWriteTicks}";
     }
 

@@ -170,6 +170,31 @@ public sealed class LocalComicLibraryScannerTests
         }
     }
 
+    [Fact]
+    public async Task ScanAsyncUsesOuterBundleSeriesForGenericNestedChapterNames()
+    {
+        var root = CreateTemporaryFolder();
+
+        try
+        {
+            var bundlePath = Path.Join(root, "Brightest Day Aftermath - The Search 01-03 (2011).zip");
+            CreateZip(bundlePath, "001.cbr");
+
+            var scanner = new LocalComicLibraryScanner();
+
+            var file = Assert.Single(await scanner.ScanAsync(root));
+            var book = file.ToComicBook(DateTimeOffset.UtcNow);
+
+            Assert.Equal("Brightest Day Aftermath The Search #1", book.Title);
+            Assert.Equal("Brightest Day Aftermath The Search", book.SeriesName);
+            Assert.Equal(1, book.IssueNumber);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static string CreateTemporaryFolder()
     {
         var path = Path.Join(Path.GetTempPath(), "comixa-reader-tests", Guid.NewGuid().ToString("N"));

@@ -9,6 +9,7 @@ using Comixa.Core.Models;
 using Comixa.Core.Repositories;
 using Comixa.Desktop.Reader;
 using Comixa.Desktop.Services;
+using Comixa.Reader.Archives;
 using Comixa.Reader.Scanning;
 
 namespace Comixa.Desktop.ViewModels;
@@ -127,6 +128,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _coverImageCache = coverImageCache;
 
         ScanFolderCommand = new AsyncRelayCommand(ScanFolderAsync);
+        RefreshLibraryCommand = new AsyncRelayCommand(RefreshLibraryAsync);
         BackToLibraryCommand = new RelayCommand(BackToLibrary);
         OpenBookCommand = new RelayCommand<ComicBookListItemViewModel>(OpenBook);
         OpenBookFullscreenCommand = new RelayCommand<ComicBookListItemViewModel>(OpenBookFullscreen);
@@ -186,6 +188,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         ToggleCbzFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Cbz));
         ToggleZipFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Zip));
         TogglePdfFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Pdf));
+        ToggleCbrFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Cbr));
         SetReadingDirectionCommand = new RelayCommand<string>(SetReadingDirection);
         ToggleThemeCommand = new RelayCommand(ToggleTheme);
         ClearSearchCommand = new RelayCommand(() => SearchQuery = "");
@@ -222,6 +225,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     // Commands - reader
     public AsyncRelayCommand ScanFolderCommand { get; }
+    public AsyncRelayCommand RefreshLibraryCommand { get; }
     public RelayCommand BackToLibraryCommand { get; }
     public RelayCommand<ComicBookListItemViewModel> OpenBookCommand { get; }
     public RelayCommand<ComicBookListItemViewModel> OpenBookFullscreenCommand { get; }
@@ -255,6 +259,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public RelayCommand ToggleCbzFilterCommand { get; }
     public RelayCommand ToggleZipFilterCommand { get; }
     public RelayCommand TogglePdfFilterCommand { get; }
+    public RelayCommand ToggleCbrFilterCommand { get; }
     public RelayCommand ClearSearchCommand { get; }
 
     // Commands - shelves
@@ -343,6 +348,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public bool IsCbzFilterActive => _formatFilter == ComicFormat.Cbz;
     public bool IsZipFilterActive => _formatFilter == ComicFormat.Zip;
     public bool IsPdfFilterActive => _formatFilter == ComicFormat.Pdf;
+    public bool IsCbrFilterActive => _formatFilter == ComicFormat.Cbr;
     public bool IsSortTitleAsc => _sortOrder == SortOrder.TitleAsc;
     public bool IsSortTitleDesc => _sortOrder == SortOrder.TitleDesc;
     public bool IsSortRecentlyAdded => _sortOrder == SortOrder.RecentlyAdded;
@@ -539,7 +545,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             var pageCount = SelectedBook.ComicBook.PageCount;
             if (pageCount == 0)
             {
-                return "Loading...";
+                return "No readable pages";
             }
 
             if (_isTwoPageMode && !IsVerticalMode && CurrentPageIndex + 1 < pageCount)
@@ -658,21 +664,54 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         await ScanFoldersAsync(folders);
     }
 
+    private async Task RefreshLibraryAsync()
+    {
+        var settings = await _settingsStore.LoadAsync();
+        RebuildFolderVMs(settings.WatchedFolders);
+        if (settings.WatchedFolders.Count == 0)
+        {
+            StatusMessage = "No watched folders yet.";
+            return;
+        }
+
+        await ScanFoldersAsync(settings.WatchedFolders);
+    }
+
     private async Task ScanFoldersAsync(IReadOnlyList<string> folders)
     {
         _isLoadingLibrary = true;
         StatusMessage = "Scanning library...";
         RaisePropertyChanged(nameof(IsLibraryEmpty));
 
+        var existingFolders = folders.Where(Directory.Exists).ToArray();
         var scannedFiles = new List<ScannedComicFile>();
-        foreach (var folder in folders.Where(Directory.Exists))
+        foreach (var folder in existingFolders)
             scannedFiles.AddRange(await _comicLibraryScanner.ScanAsync(folder));
 
         var now = DateTimeOffset.UtcNow;
+        var scannedPaths = scannedFiles
+            .Select(file => file.FilePath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         foreach (var file in scannedFiles)
             await _comicRepository.UpsertAsync(file.ToComicBook(now));
 
         var allDbBooks = await _comicRepository.GetAllAsync();
+        var obsoleteBooks = allDbBooks
+            .Where(book => existingFolders.Any(folder => IsInsideFolder(book.FilePath, folder))
+                && !scannedPaths.Contains(book.FilePath))
+            .ToArray();
+
+        foreach (var obsoleteBook in obsoleteBooks)
+        {
+            await _comicRepository.DeleteAsync(obsoleteBook.Id);
+        }
+
+        if (obsoleteBooks.Length > 0)
+        {
+            allDbBooks = await _comicRepository.GetAllAsync();
+        }
+
         var allProgress = await _progressRepository.GetAllAsync();
 
         _progressMap.Clear();
@@ -1160,7 +1199,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     private static bool IsInsideFolder(string filePath, string folderPath)
     {
-        var relativePath = Path.GetRelativePath(folderPath, filePath);
+        var physicalPath = ComicArchiveLocator.GetPhysicalArchivePath(filePath);
+        var relativePath = Path.GetRelativePath(folderPath, physicalPath);
         return relativePath.Length > 0 &&
             !relativePath.StartsWith("..", StringComparison.Ordinal) &&
             !Path.IsPathRooted(relativePath);
@@ -1735,7 +1775,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     private static bool IsUnsupportedReaderFormat(ComicFormat format)
     {
-        return format is ComicFormat.Cbr or ComicFormat.Rar or ComicFormat.SevenZip or ComicFormat.Epub;
+        return format is ComicFormat.SevenZip or ComicFormat.Epub;
     }
 
     private static string GetUnreadableBookMessage(ComicBook book)
@@ -1995,6 +2035,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         RaisePropertyChanged(nameof(IsCbzFilterActive));
         RaisePropertyChanged(nameof(IsZipFilterActive));
         RaisePropertyChanged(nameof(IsPdfFilterActive));
+        RaisePropertyChanged(nameof(IsCbrFilterActive));
     }
 
     private void NotifyAllDirectionProps()

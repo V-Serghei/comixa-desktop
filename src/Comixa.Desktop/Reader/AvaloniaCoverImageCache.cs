@@ -3,6 +3,7 @@ using System.IO.Compression;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Comixa.Core.Models;
+using Comixa.Reader.Archives;
 using Comixa.Reader.Scanning;
 using ImageMagick;
 
@@ -223,15 +224,17 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
     {
         try
         {
-            if (File.Exists(path))
+            var physicalPath = ComicArchiveLocator.GetPhysicalArchivePath(path);
+            var pathHash = GetStablePathHash(path);
+            if (File.Exists(physicalPath))
             {
-                var file = new FileInfo(path);
-                return $"{file.LastWriteTimeUtc.Ticks:x}-{file.Length:x}";
+                var file = new FileInfo(physicalPath);
+                return $"{pathHash}-{file.LastWriteTimeUtc.Ticks:x}-{file.Length:x}";
             }
 
-            if (Directory.Exists(path))
+            if (Directory.Exists(physicalPath))
             {
-                return Directory.GetLastWriteTimeUtc(path).Ticks.ToString("x");
+                return $"{pathHash}-{Directory.GetLastWriteTimeUtc(physicalPath).Ticks:x}";
             }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -239,6 +242,12 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
         }
 
         return "unknown";
+    }
+
+    private static string GetStablePathHash(string path)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(path);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes))[..16];
     }
 
     private void DeleteOldCoverFiles(Guid comicBookId, string keepFile)

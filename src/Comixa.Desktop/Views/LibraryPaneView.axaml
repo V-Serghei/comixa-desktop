@@ -12,6 +12,7 @@
               Background="Transparent"
               BorderThickness="0"
               Padding="4"
+              HorizontalAlignment="Center"
               Cursor="Hand">
         <Button.ContextMenu>
           <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
@@ -122,6 +123,7 @@
               Background="Transparent"
               BorderThickness="0"
               Padding="4"
+              HorizontalAlignment="Center"
               Cursor="Hand">
         <Border Width="100"
                 Background="{DynamicResource ComixaSurfaceBrush}"
@@ -201,6 +203,8 @@
                 Command="{Binding ScanFolderCommand}"
                 Background="{DynamicResource ComixaPrimaryBrush}"
                 Foreground="#001B12" />
+        <Button Content="Refresh"
+                Command="{Binding RefreshLibraryCommand}" />
       </StackPanel>
     </Grid>
 
@@ -231,6 +235,10 @@
                     Margin="0,0,4,4"
                     IsChecked="{Binding IsPdfFilterActive, Mode=OneWay}"
                     Command="{Binding TogglePdfFilterCommand}" />
+      <ToggleButton Content="CBR"
+                    Margin="0,0,4,4"
+                    IsChecked="{Binding IsCbrFilterActive, Mode=OneWay}"
+                    Command="{Binding ToggleCbrFilterCommand}" />
     </WrapPanel>
 
     <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="6" Margin="0,0,0,8">
@@ -299,7 +307,7 @@
               <ItemsControl ItemsSource="{Binding Items}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal" />
+                    <UniformGrid Rows="1" />
                   </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
               </ItemsControl>

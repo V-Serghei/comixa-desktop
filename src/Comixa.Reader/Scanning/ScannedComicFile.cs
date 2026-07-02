@@ -1,4 +1,5 @@
 using Comixa.Core.Models;
+using Comixa.Reader.Archives;
 
 namespace Comixa.Reader.Scanning;
 
@@ -34,7 +35,7 @@ public sealed record ScannedComicFile(
             return parsed;
         }
 
-        var parent = Directory.GetParent(filePath);
+        var parent = Directory.GetParent(ComicArchiveLocator.GetPhysicalArchivePath(filePath));
         if (parent is null || string.IsNullOrWhiteSpace(parent.Name) || IsGenericLibraryFolderName(parent.Name))
         {
             return parsed;

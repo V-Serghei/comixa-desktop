@@ -1,5 +1,6 @@
 using Avalonia.Media.Imaging;
 using Comixa.Core.Models;
+using Comixa.Reader.Archives;
 using Comixa.Reader.Scanning;
 
 namespace Comixa.Desktop.ViewModels;
@@ -79,8 +80,8 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
     private string PageLabel => PageCount == 0
         ? Format switch
         {
-            "CBR" or "RAR" or "SEVENZIP" or "EPUB" => "unsupported",
-            "ZIP" => "no readable pages",
+            "SEVENZIP" or "EPUB" => "unsupported",
+            "CBR" or "RAR" or "ZIP" => "no readable pages",
             _ => "? pages"
         }
         : $"{PageCount} pages";
@@ -123,7 +124,7 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
             return hasUsefulStoredSeries ? storedSeries : titleSeries;
         }
 
-        var parent = Directory.GetParent(comicBook.FilePath);
+        var parent = Directory.GetParent(ComicArchiveLocator.GetPhysicalArchivePath(comicBook.FilePath));
         if (!string.IsNullOrWhiteSpace(parent?.Name) && !IsGenericLibraryFolderName(parent.Name))
         {
             return ComicTitleParser.NormalizeDisplayName(parent.Name);
