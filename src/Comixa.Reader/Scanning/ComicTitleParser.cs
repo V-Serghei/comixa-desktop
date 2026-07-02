@@ -25,10 +25,14 @@ public static partial class ComicTitleParser
         cleaned = LeadingSeparatorsRegex().Replace(cleaned, string.Empty);
         cleaned = CollapseWhitespaceRegex().Replace(cleaned, " ").Trim();
 
-        var volumeNumber = ParseVolume(cleaned);
+        var issueLabel = ParseIssueLabel(cleaned);
         var issueNumber = ParseIssue(cleaned);
-        var seriesName = BuildSeriesName(cleaned);
-        var displayTitle = BuildDisplayTitle(cleaned, seriesName, issueNumber, volumeNumber);
+        var structuralTitle = issueNumber is null
+            ? cleaned
+            : YearParenthesesRegex().Replace(cleaned, string.Empty).Trim();
+        var volumeNumber = ParseVolume(structuralTitle);
+        var seriesName = BuildSeriesName(structuralTitle);
+        var displayTitle = BuildDisplayTitle(structuralTitle, seriesName, issueNumber, volumeNumber, issueLabel);
 
         return new ParsedComicTitle(
             displayTitle,
@@ -152,7 +156,12 @@ public static partial class ComicTitleParser
             || extension.Equals(".tiff", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string BuildDisplayTitle(string cleaned, string seriesName, int? issueNumber, int? volumeNumber)
+    private static string BuildDisplayTitle(
+        string cleaned,
+        string seriesName,
+        int? issueNumber,
+        int? volumeNumber,
+        string? issueLabel)
     {
         if (issueNumber is null || string.IsNullOrWhiteSpace(seriesName))
         {
@@ -160,7 +169,7 @@ public static partial class ComicTitleParser
         }
 
         var volumeText = volumeNumber is null ? "" : $" Vol. {volumeNumber}";
-        return $"{ToDisplayCase(seriesName)}{volumeText} #{issueNumber}";
+        return $"{ToDisplayCase(seriesName)}{volumeText} #{issueLabel ?? issueNumber.ToString()}";
     }
 
     private static string BuildMetadataDisplayTitle(string? title, string seriesName, int? issueNumber, int? volumeNumber)
@@ -240,7 +249,7 @@ public static partial class ComicTitleParser
 
     private static int? ParseIssue(string text)
     {
-        foreach (var regex in new[] { IssueHashRegex(), IssueWordRegex(), LeadingBareNumberRegex(), TrailingBareNumberRegex() })
+        foreach (var regex in new[] { IssueRangeRegex(), IssueHashRegex(), IssueWordRegex(), IssueBeforeYearRegex(), LeadingBareNumberRegex(), TrailingBareNumberRegex() })
         {
             var match = regex.Match(text);
             if (!match.Success || !int.TryParse(match.Groups[1].Value, out var issue))
@@ -259,10 +268,29 @@ public static partial class ComicTitleParser
         return null;
     }
 
+    private static string? ParseIssueLabel(string text)
+    {
+        var match = IssueRangeRegex().Match(text);
+        if (!match.Success ||
+            !int.TryParse(match.Groups[1].Value, out var firstIssue) ||
+            !int.TryParse(match.Groups[2].Value, out var lastIssue) ||
+            firstIssue is >= 1800 and <= 2099 ||
+            lastIssue is >= 1800 and <= 2099)
+        {
+            return null;
+        }
+
+        return firstIssue < lastIssue
+            ? $"{firstIssue}-{lastIssue}"
+            : firstIssue.ToString();
+    }
+
     private static string BuildSeriesName(string text)
     {
         var seriesName = IssueHashRegex().Replace(text, string.Empty);
         seriesName = IssueWordRegex().Replace(seriesName, string.Empty);
+        seriesName = IssueRangeRegex().Replace(seriesName, string.Empty);
+        seriesName = IssueBeforeYearRegex().Replace(seriesName, string.Empty);
         seriesName = LeadingBareNumberRegex().Replace(seriesName, string.Empty);
         seriesName = VolumeRegex().Replace(seriesName, string.Empty);
         seriesName = TrailingBareNumberRegex().Replace(seriesName, string.Empty);
@@ -295,11 +323,20 @@ public static partial class ComicTitleParser
     [GeneratedRegex("""#\s*(\d+)""")]
     private static partial Regex IssueHashRegex();
 
+    [GeneratedRegex("""(?:^|[\s_.-])(\d{1,4})\s*[-\u2013\u2014]\s*(\d{1,4})(?:\s|$)""")]
+    private static partial Regex IssueRangeRegex();
+
     [GeneratedRegex("\\b(?:ch(?:apter)?|c|iss(?:ue)?|part|pt|episode|ep|\\u0433\\u043b\\u0430\\u0432\\u0430|\\u0447\\u0430\\u0441\\u0442\\u044c|\\u0442\\u043e\\u043c)[.\\s_-]*(\\d+)", RegexOptions.IgnoreCase)]
     private static partial Regex IssueWordRegex();
 
     [GeneratedRegex("""\b(?:vol(?:ume)?\.?\s*(\d+)|v(\d+))\b""", RegexOptions.IgnoreCase)]
     private static partial Regex VolumeRegex();
+
+    [GeneratedRegex("""(?:^|[\s_.-])(\d{1,4})\s*\(\d{4}\)\s*$""")]
+    private static partial Regex IssueBeforeYearRegex();
+
+    [GeneratedRegex("""\s*\(\d{4}\)""")]
+    private static partial Regex YearParenthesesRegex();
 
     [GeneratedRegex("""^\s*(\d{1,4})(?:\s*[-.,_ ]\s*|$)""")]
     private static partial Regex LeadingBareNumberRegex();

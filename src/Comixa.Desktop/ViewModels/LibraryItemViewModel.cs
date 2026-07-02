@@ -71,5 +71,5 @@ public sealed class SeriesLibraryItemViewModel : LibraryItemViewModel
     public int ReadCount => Books.Count(b => b.Progress is not null && b.Progress.PageNumber > 0);
     public double ProgressValue => Books.Count == 0 ? 0.0 : (double)ReadCount / Books.Count;
     public bool HasProgress => ReadCount > 0;
-    public string IssueCountLabel => $"{Books.Count} issues";
+    public string IssueCountLabel => Books.Count == 1 ? "1 issue" : $"{Books.Count} issues";
 }

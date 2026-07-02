@@ -13,6 +13,9 @@ public sealed class ComicTitleParserTests
     [InlineData("y-the-last-man_v1_ch1_manga-chan.me.zip", "Y The Last Man Vol. 1 #1", "Y The Last Man", 1)]
     [InlineData("y-the-last-man_v1_ch1_manga-chan.me", "Y The Last Man Vol. 1 #1", "Y The Last Man", 1)]
     [InlineData("release-group-y-the-last-man-v1-ch001.cbz", "Y The Last Man Vol. 1 #1", "Y The Last Man", 1)]
+    [InlineData("Absolute Green Lantern 016 (2026) (Digital) (Lil-Empire).cbz", "Absolute Green Lantern #16", "Absolute Green Lantern", 16)]
+    [InlineData("Babylon Cove 002 (2026) (digital) (Knight Ripper-Empire).cbr", "Babylon Cove #2", "Babylon Cove", 2)]
+    [InlineData("Brightest Day Aftermath - The Search 01-03 (2011) (Minutemen-DTs).zip", "Brightest Day Aftermath The Search #1-3", "Brightest Day Aftermath The Search", 1)]
     public void ParseExtractsSeriesAndIssueFromCommonNames(
         string fileName,
         string displayTitle,

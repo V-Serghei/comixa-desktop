@@ -1102,7 +1102,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         {
             var list = SortSeriesBooks(group.Books).ToList();
             var hasSeriesName = !group.Key.StartsWith(noSeriesPrefix);
-            if (hasSeriesName && (list.Count >= 2 || _isSeriesView))
+            var shouldGroupAsSeries = hasSeriesName &&
+                (list.Count >= 2 || list.Any(book => book.IssueNumber.HasValue));
+            if (shouldGroupAsSeries)
             {
                 result.Add(new SeriesLibraryItemViewModel(group.Key, list, OpenSeries));
             }
@@ -1678,10 +1680,12 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
         var book = SelectedBook.ComicBook;
         SetActivePageWindow(book);
-        if (book.Format is ComicFormat.Cbr or ComicFormat.Rar or ComicFormat.SevenZip or ComicFormat.Epub)
+        if (IsUnsupportedReaderFormat(book.Format) || book.PageCount <= 0)
         {
+            CurrentPageImage = null;
             NextPageImage = null;
-            ReaderStatus = $"{book.Format} format not supported yet.";
+            IsPageLoading = false;
+            ReaderStatus = GetUnreadableBookMessage(book);
             RaisePropertyChanged(nameof(CurrentPageLabel));
             RefreshAllNavCanExecute();
             return;
@@ -1727,6 +1731,23 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
         RaisePropertyChanged(nameof(CurrentPageLabel));
         RefreshAllNavCanExecute();
+    }
+
+    private static bool IsUnsupportedReaderFormat(ComicFormat format)
+    {
+        return format is ComicFormat.Cbr or ComicFormat.Rar or ComicFormat.SevenZip or ComicFormat.Epub;
+    }
+
+    private static string GetUnreadableBookMessage(ComicBook book)
+    {
+        if (IsUnsupportedReaderFormat(book.Format))
+        {
+            return $"{book.Format} detected, but this format is not supported yet.";
+        }
+
+        return book.Format == ComicFormat.Zip
+            ? "This ZIP does not contain readable image pages."
+            : "No readable pages found.";
     }
 
     private async Task LoadNextPageImageAsync(

@@ -76,7 +76,14 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
         }
     }
 
-    private string PageLabel => PageCount == 0 ? "? pages" : $"{PageCount} pages";
+    private string PageLabel => PageCount == 0
+        ? Format switch
+        {
+            "CBR" or "RAR" or "SEVENZIP" or "EPUB" => "unsupported",
+            "ZIP" => "no readable pages",
+            _ => "? pages"
+        }
+        : $"{PageCount} pages";
 
     public bool MatchesSearch(string normalizedQuery)
     {
