@@ -16,7 +16,8 @@ namespace Comixa.Desktop.ViewModels;
 
 public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 {
-    private const double LibraryCardSlotWidth = 124;
+    private const double LibraryCardSlotWidth = 120;
+    private const double LibraryViewportPadding = 48;
     private const int MaxLibraryItemsPerRow = 40;
 
     private readonly IFolderPicker _folderPicker;
@@ -287,8 +288,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        var usableWidth = Math.Max(1, width - LibraryViewportPadding);
         var nextItemsPerRow = Math.Clamp(
-            (int)Math.Floor(width / LibraryCardSlotWidth),
+            (int)Math.Floor(usableWidth / LibraryCardSlotWidth),
             1,
             MaxLibraryItemsPerRow);
 
@@ -1211,9 +1213,10 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
         for (var index = 0; index < DisplayedItems.Count; index += _libraryItemsPerRow)
         {
+            var rowItems = DisplayedItems.Skip(index).Take(_libraryItemsPerRow).ToArray();
             DisplayedRows.Add(new LibraryRowViewModel(
-                DisplayedItems.Skip(index).Take(_libraryItemsPerRow).ToArray(),
-                _libraryItemsPerRow));
+                rowItems,
+                rowItems.Length));
         }
     }
 
@@ -1227,7 +1230,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             {
                 var books = SortSeriesBooks(group).ToArray();
                 var first = books[0];
-                var rows = BuildSeriesDetailRows(books);
+                var rows = BuildLibraryRows(books.Select(CreateSingleLibraryItem).Cast<LibraryItemViewModel>().ToArray());
                 return new SeriesVariantViewModel(
                     GetSeriesVariantTitle(first, books),
                     GetSeriesVariantSubtitle(first, books),
@@ -1245,15 +1248,15 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     }
 
-    private IReadOnlyList<LibraryRowViewModel> BuildSeriesDetailRows(IReadOnlyList<ComicBookListItemViewModel> books)
+    private IReadOnlyList<LibraryRowViewModel> BuildLibraryRows(IReadOnlyList<LibraryItemViewModel> items)
     {
         var rows = new List<LibraryRowViewModel>();
-        var items = books.Select(CreateSingleLibraryItem).Cast<LibraryItemViewModel>().ToArray();
-        for (var index = 0; index < items.Length; index += _libraryItemsPerRow)
+        for (var index = 0; index < items.Count; index += _libraryItemsPerRow)
         {
+            var rowItems = items.Skip(index).Take(_libraryItemsPerRow).ToArray();
             rows.Add(new LibraryRowViewModel(
-                items.Skip(index).Take(_libraryItemsPerRow).ToArray(),
-                _libraryItemsPerRow));
+                rowItems,
+                rowItems.Length));
         }
 
         return rows;

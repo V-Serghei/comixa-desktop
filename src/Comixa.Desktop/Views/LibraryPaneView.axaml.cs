@@ -11,11 +11,11 @@ public sealed partial class LibraryPaneView : UserControl
     public LibraryPaneView()
     {
         InitializeComponent();
-        LibraryItemsList.SizeChanged += OnLibraryItemsListSizeChanged;
+        LibraryContent.SizeChanged += OnLibraryContentSizeChanged;
         DataContextChanged += (_, _) => UpdateLibraryColumnCount();
     }
 
-    private void OnLibraryItemsListSizeChanged(object? sender, SizeChangedEventArgs e)
+    private void OnLibraryContentSizeChanged(object? sender, SizeChangedEventArgs e)
     {
         UpdateLibraryColumnCount();
     }
@@ -66,7 +66,7 @@ public sealed partial class LibraryPaneView : UserControl
     {
         if (DataContext is MainWindowViewModel viewModel)
         {
-            viewModel.SetLibraryViewportWidth(LibraryItemsList.Bounds.Width);
+            viewModel.SetLibraryViewportWidth(LibraryContent.Bounds.Width);
         }
     }
 
