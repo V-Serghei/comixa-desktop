@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:media="using:Avalonia.Media"
              xmlns:vm="using:Comixa.Desktop.ViewModels"
@@ -52,22 +52,27 @@
                        Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
             <WrapPanel>
               <ToggleButton Content="Edge clicks"
+                            Classes="filterChip"
                             Margin="0,0,6,6"
                             IsChecked="{Binding IsEdgePageTurnEnabled, Mode=OneWay}"
                             Command="{Binding ToggleEdgePageTurnsCommand}" />
               <ToggleButton Content="Drag turns"
+                            Classes="filterChip"
                             Margin="0,0,6,6"
                             IsChecked="{Binding IsDragPageTurnEnabled, Mode=OneWay}"
                             Command="{Binding ToggleDragPageTurnsCommand}" />
               <ToggleButton Content="Invert turns"
+                            Classes="filterChip"
                             Margin="0,0,6,6"
                             IsChecked="{Binding IsPageTurnInverted, Mode=OneWay}"
                             Command="{Binding TogglePageTurnInversionCommand}" />
               <ToggleButton Content="{Binding PageLayoutLabel}"
+                            Classes="filterChip"
                             Margin="0,0,6,6"
                             IsChecked="{Binding IsTwoPageMode, Mode=OneWay}"
                             Command="{Binding ToggleTwoPageModeCommand}" />
               <ToggleButton Content="Previous opens at end"
+                            Classes="filterChip"
                             Margin="0,0,6,6"
                             IsChecked="{Binding OpenPreviousChapterAtLastPage, Mode=OneWay}"
                             Command="{Binding ToggleOpenPreviousChapterAtLastPageCommand}" />
@@ -161,21 +166,9 @@
             </StackPanel>
           </StackPanel>
 
-          <StackPanel Spacing="6">
-            <TextBlock Text="KEYBOARD SHORTCUTS"
-                       FontSize="10"
-                       FontWeight="SemiBold"
-                       LetterSpacing="1.2"
-                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
-            <TextBlock Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
-                       FontSize="12"
-                       Text="Left / Right - navigate pages&#xA;Page Up / Page Down - navigate pages&#xA;Home / End - first / last page&#xA;F - Fit Page / Fit Width&#xA;F11 - fullscreen reader&#xA;Esc - exit fullscreen&#xA;B - toggle bookmark&#xA;S - settings&#xA;Right-click card - mark read / shelves" />
-          </StackPanel>
-
           <Button Content="Close Settings"
                   Command="{Binding ToggleReaderSettingsPanelCommand}"
-                  Background="{DynamicResource ComixaPrimaryBrush}"
-                  Foreground="#001B12" />
+                  Classes="primaryButton" />
         </StackPanel>
       </ScrollViewer>
     </Border>
@@ -199,12 +192,12 @@
                        VerticalAlignment="Center"
                        Foreground="{DynamicResource ComixaPrimaryBrush}" />
           <Button Grid.Column="2"
-                  Content="⚙"
+                  Content="Settings"
                   Command="{Binding ToggleReaderSettingsPanelCommand}"
                   IsVisible="{Binding HasSelectedBook}"
                   Classes="readerButton"
                   ToolTip.Tip="Reader settings"
-                  Width="32"
+                  Width="76"
                   Height="28"
                   Padding="0"
                   Margin="6,0" />

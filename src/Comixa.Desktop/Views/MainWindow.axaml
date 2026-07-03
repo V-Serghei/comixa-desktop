@@ -12,17 +12,17 @@
         MinHeight="640"
         Background="{DynamicResource ComixaBackgroundBrush}">
 
-  <Grid RowDefinitions="52,*">
+  <Grid RowDefinitions="60,*">
     <Border Background="{DynamicResource ComixaSurfaceBrush}"
             BorderBrush="{DynamicResource ComixaOutlineBrush}"
             BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="20,0">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="22,0">
         <StackPanel VerticalAlignment="Center">
           <TextBlock Text="Comixa"
-                     FontSize="17"
+                     FontSize="18"
                      FontWeight="SemiBold"
                      Foreground="{DynamicResource ComixaPrimaryBrush}" />
-          <TextBlock Text="{Binding StatusMessage}"
+          <TextBlock Text="{Binding LibraryStatsLabel}"
                      FontSize="11"
                      Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
         </StackPanel>
@@ -30,7 +30,7 @@
                 Classes="chromeButton"
                 Content="{Binding ReaderPreviewPaneLabel}"
                 Command="{Binding ToggleReaderPreviewPaneCommand}"
-                ToolTip.Tip="Show or hide the reader preview pane"
+                ToolTip.Tip="Show or hide reader"
                 VerticalAlignment="Center"
                 Margin="0,0,8,0" />
         <Button Grid.Column="2"
@@ -45,7 +45,7 @@
                 Classes="chromeButton"
                 Content="{Binding ThemeToggleLabel}"
                 Command="{Binding ToggleThemeCommand}"
-                ToolTip.Tip="Toggle light/dark theme"
+                ToolTip.Tip="Theme"
                 VerticalAlignment="Center"
                 Margin="0,0,8,0" />
         <Button Grid.Column="4"
@@ -59,7 +59,7 @@
 
     <Grid Grid.Row="1">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="168" />
+        <ColumnDefinition Width="224" />
         <ColumnDefinition Width="1" />
         <ColumnDefinition Width="{Binding LibraryPaneWidth}" />
         <ColumnDefinition Width="{Binding ReaderPreviewSplitterWidth}" />
@@ -84,65 +84,311 @@
 
     <Border Grid.RowSpan="2"
             IsVisible="{Binding IsSettingsPanelVisible}"
-            Background="#99000000">
-      <Border Width="520"
-              MaxHeight="620"
+            Background="#B0000000">
+      <Border Width="820"
+              MaxHeight="720"
               HorizontalAlignment="Center"
               VerticalAlignment="Center"
-              Padding="28"
               CornerRadius="8"
               Background="{DynamicResource ComixaSurfaceBrush}"
               BorderBrush="{DynamicResource ComixaOutlineBrush}"
               BorderThickness="1">
-        <StackPanel Spacing="22">
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Text="Application Settings"
-                       FontSize="22"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource ComixaOnSurfaceBrush}"
-                       VerticalAlignment="Center" />
-            <Button Grid.Column="1"
-                    Content="Close"
-                    Classes="chromeButton"
-                    Command="{Binding ToggleSettingsPanelCommand}" />
+        <Grid RowDefinitions="Auto,*">
+          <Border Padding="24,20"
+                  BorderBrush="{DynamicResource ComixaOutlineBrush}"
+                  BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="3">
+                <TextBlock Text="Settings"
+                           FontSize="24"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                <TextBlock Text="{Binding StatusMessage}"
+                           FontSize="12"
+                           Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+              </StackPanel>
+              <Button Grid.Column="1"
+                      Content="Close"
+                      Classes="chromeButton"
+                      Command="{Binding ToggleSettingsPanelCommand}"
+                      VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+
+          <Grid Grid.Row="1" ColumnDefinitions="190,*">
+            <Border Background="{DynamicResource ComixaSurfaceElevatedBrush}"
+                    BorderBrush="{DynamicResource ComixaOutlineBrush}"
+                    BorderThickness="0,0,1,0"
+                    Padding="14">
+              <StackPanel Spacing="8">
+                <ToggleButton Content="Application"
+                              Classes="settingsTabButton"
+                              IsChecked="{Binding IsSettingsApplicationTab, Mode=OneWay}"
+                              Command="{Binding SetSettingsTabCommand}"
+                              CommandParameter="application" />
+                <ToggleButton Content="Library"
+                              Classes="settingsTabButton"
+                              IsChecked="{Binding IsSettingsLibraryTab, Mode=OneWay}"
+                              Command="{Binding SetSettingsTabCommand}"
+                              CommandParameter="library" />
+                <ToggleButton Content="Reader"
+                              Classes="settingsTabButton"
+                              IsChecked="{Binding IsSettingsReaderTab, Mode=OneWay}"
+                              Command="{Binding SetSettingsTabCommand}"
+                              CommandParameter="reader" />
+
+                <Border Height="1"
+                        Background="{DynamicResource ComixaOutlineBrush}"
+                        Margin="0,10" />
+
+                <TextBlock Text="{Binding ActivityStatsLabel}"
+                           FontSize="12"
+                           Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+              </StackPanel>
+            </Border>
+
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+              <StackPanel Margin="26" Spacing="26">
+                <StackPanel Spacing="22" IsVisible="{Binding IsSettingsApplicationTab}">
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="Appearance"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                    <WrapPanel>
+                      <ToggleButton Content="Dark theme"
+                                    Classes="filterChip"
+                                    Margin="0,0,8,8"
+                                    IsChecked="{Binding IsDarkTheme, Mode=OneWay}"
+                                    Command="{Binding ToggleThemeCommand}" />
+                      <ToggleButton Content="{Binding ReaderPreviewPaneLabel}"
+                                    Classes="filterChip"
+                                    Margin="0,0,8,8"
+                                    IsChecked="{Binding IsReaderPreviewPaneEnabled, Mode=OneWay}"
+                                    Command="{Binding ToggleReaderPreviewPaneCommand}" />
+                    </WrapPanel>
+                  </StackPanel>
+
+                  <Border Height="1" Background="{DynamicResource ComixaOutlineBrush}" />
+
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="Startup"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                    <WrapPanel>
+                      <ToggleButton Content="Resume reading position"
+                                    Classes="filterChip"
+                                    Margin="0,0,8,8"
+                                    IsChecked="{Binding OpenComicsAtLastPosition, Mode=OneWay}"
+                                    Command="{Binding ToggleOpenComicsAtLastPositionCommand}" />
+                      <ToggleButton Content="Open fullscreen"
+                                    Classes="filterChip"
+                                    Margin="0,0,8,8"
+                                    IsChecked="{Binding OpenComicsInFullscreen, Mode=OneWay}"
+                                    Command="{Binding ToggleOpenComicsInFullscreenCommand}" />
+                    </WrapPanel>
+                  </StackPanel>
+                </StackPanel>
+
+                <StackPanel Spacing="20" IsVisible="{Binding IsSettingsLibraryTab}">
+                  <Grid ColumnDefinitions="*,Auto,Auto">
+                    <StackPanel Spacing="3">
+                      <TextBlock Text="Library"
+                                 FontSize="16"
+                                 FontWeight="SemiBold"
+                                 Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                      <TextBlock Text="{Binding FolderStatsLabel}"
+                                 FontSize="12"
+                                 Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Content="Add Folder"
+                            Classes="primaryButton"
+                            Command="{Binding ScanFolderCommand}"
+                            Margin="0,0,8,0" />
+                    <Button Grid.Column="2"
+                            Content="Refresh"
+                            Classes="chromeButton"
+                            Command="{Binding RefreshLibraryCommand}" />
+                  </Grid>
+
+                  <ItemsControl ItemsSource="{Binding LibraryFolders}" IsVisible="{Binding HasLibraryFolders}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:LibraryFolderViewModel">
+                        <Border BorderBrush="{DynamicResource ComixaOutlineBrush}"
+                                BorderThickness="0,0,0,1"
+                                Padding="0,10">
+                          <Grid ColumnDefinitions="*,Auto,Auto">
+                            <StackPanel Spacing="2">
+                              <TextBlock Text="{Binding Name}"
+                                         FontSize="13"
+                                         FontWeight="SemiBold"
+                                         Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                              <TextBlock Text="{Binding Path}"
+                                         FontSize="11"
+                                         TextTrimming="CharacterEllipsis"
+                                         Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CountLabel}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="12,0" />
+                            <Button Grid.Column="2"
+                                    Content="Remove"
+                                    Classes="dangerButton"
+                                    Command="{Binding RemoveCommand}"
+                                    VerticalAlignment="Center" />
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+
+                  <TextBlock Text="No watched folders"
+                             IsVisible="{Binding !HasLibraryFolders}"
+                             Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+
+                  <Border Height="1" Background="{DynamicResource ComixaOutlineBrush}" />
+
+                  <StackPanel Spacing="10">
+                    <TextBlock Text="Activity"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                    <ItemsControl ItemsSource="{Binding ActivityItems}" IsVisible="{Binding HasActivity}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ActivityItemViewModel">
+                          <Grid ColumnDefinitions="64,*" Margin="0,0,0,10">
+                            <TextBlock Text="{Binding TimeLabel}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+                            <StackPanel Grid.Column="1" Spacing="2">
+                              <TextBlock Text="{Binding Title}"
+                                         FontSize="12"
+                                         FontWeight="SemiBold"
+                                         Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                              <TextBlock Text="{Binding Detail}"
+                                         IsVisible="{Binding HasDetail}"
+                                         FontSize="11"
+                                         TextTrimming="CharacterEllipsis"
+                                         Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+                            </StackPanel>
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </StackPanel>
+
+                <StackPanel Spacing="22" IsVisible="{Binding IsSettingsReaderTab}">
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="Reading direction"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                    <WrapPanel>
+                      <RadioButton Content="Left to Right"
+                                   GroupName="SettingsDirection"
+                                   Margin="0,0,12,8"
+                                   IsChecked="{Binding IsLeftToRight, Mode=OneWay}"
+                                   Command="{Binding SetReadingDirectionCommand}"
+                                   CommandParameter="ltr" />
+                      <RadioButton Content="Right to Left"
+                                   GroupName="SettingsDirection"
+                                   Margin="0,0,12,8"
+                                   IsChecked="{Binding IsRightToLeft, Mode=OneWay}"
+                                   Command="{Binding SetReadingDirectionCommand}"
+                                   CommandParameter="rtl" />
+                      <RadioButton Content="Top to Bottom"
+                                   GroupName="SettingsDirection"
+                                   Margin="0,0,12,8"
+                                   IsChecked="{Binding IsTopToBottom, Mode=OneWay}"
+                                   Command="{Binding SetReadingDirectionCommand}"
+                                   CommandParameter="ttb" />
+                    </WrapPanel>
+                  </StackPanel>
+
+                  <Border Height="1" Background="{DynamicResource ComixaOutlineBrush}" />
+
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="Reader behavior"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                    <WrapPanel>
+                      <ToggleButton Content="{Binding PageLayoutLabel}"
+                                    Classes="filterChip"
+                                    Margin="0,0,8,8"
+                                    IsChecked="{Binding IsTwoPageMode, Mode=OneWay}"
+                                    Command="{Binding ToggleTwoPageModeCommand}" />
+                      <ToggleButton Content="Edge page turns"
+                                    Classes="filterChip"
+                                    Margin="0,0,8,8"
+                                    IsChecked="{Binding IsEdgePageTurnEnabled, Mode=OneWay}"
+                                    Command="{Binding ToggleEdgePageTurnsCommand}" />
+                      <ToggleButton Content="Drag page turns"
+                                    Classes="filterChip"
+                                    Margin="0,0,8,8"
+                                    IsChecked="{Binding IsDragPageTurnEnabled, Mode=OneWay}"
+                                    Command="{Binding ToggleDragPageTurnsCommand}" />
+                      <ToggleButton Content="Invert turns"
+                                    Classes="filterChip"
+                                    Margin="0,0,8,8"
+                                    IsChecked="{Binding IsPageTurnInverted, Mode=OneWay}"
+                                    Command="{Binding TogglePageTurnInversionCommand}" />
+                      <ToggleButton Content="Previous opens at end"
+                                    Classes="filterChip"
+                                    Margin="0,0,8,8"
+                                    IsChecked="{Binding OpenPreviousChapterAtLastPage, Mode=OneWay}"
+                                    Command="{Binding ToggleOpenPreviousChapterAtLastPageCommand}" />
+                    </WrapPanel>
+                  </StackPanel>
+
+                  <Border Height="1" Background="{DynamicResource ComixaOutlineBrush}" />
+
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="Wheel"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                    <WrapPanel>
+                      <RadioButton Content="Scroll"
+                                   GroupName="SettingsWheel"
+                                   Margin="0,0,12,8"
+                                   IsChecked="{Binding IsWheelScrollAction, Mode=OneWay}"
+                                   Command="{Binding SetReaderWheelActionCommand}"
+                                   CommandParameter="scroll" />
+                      <RadioButton Content="Pages"
+                                   GroupName="SettingsWheel"
+                                   Margin="0,0,12,8"
+                                   IsChecked="{Binding IsWheelPageTurnAction, Mode=OneWay}"
+                                   Command="{Binding SetReaderWheelActionCommand}"
+                                   CommandParameter="page" />
+                      <RadioButton Content="Zoom"
+                                   GroupName="SettingsWheel"
+                                   Margin="0,0,12,8"
+                                   IsChecked="{Binding IsWheelZoomAction, Mode=OneWay}"
+                                   Command="{Binding SetReaderWheelActionCommand}"
+                                   CommandParameter="zoom" />
+                    </WrapPanel>
+                  </StackPanel>
+
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Reset reader defaults"
+                            Classes="chromeButton"
+                            Command="{Binding ResetReaderDefaultsCommand}" />
+                    <Button Content="Open reader panel"
+                            Classes="chromeButton"
+                            Command="{Binding ToggleReaderSettingsPanelCommand}" />
+                  </StackPanel>
+                </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
           </Grid>
-
-          <StackPanel Spacing="10">
-            <TextBlock Text="LIBRARY"
-                       FontSize="10"
-                       FontWeight="SemiBold"
-                       LetterSpacing="1.2"
-                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
-            <WrapPanel>
-              <ToggleButton Content="Continue where left off"
-                            Margin="0,0,6,6"
-                            IsChecked="{Binding OpenComicsAtLastPosition, Mode=OneWay}"
-                            Command="{Binding ToggleOpenComicsAtLastPositionCommand}" />
-              <ToggleButton Content="Open comics fullscreen"
-                            Margin="0,0,6,6"
-                            IsChecked="{Binding OpenComicsInFullscreen, Mode=OneWay}"
-                            Command="{Binding ToggleOpenComicsInFullscreenCommand}" />
-              <ToggleButton Content="Right reader preview"
-                            Margin="0,0,6,6"
-                            IsChecked="{Binding IsReaderPreviewPaneEnabled, Mode=OneWay}"
-                            Command="{Binding ToggleReaderPreviewPaneCommand}" />
-            </WrapPanel>
-          </StackPanel>
-
-          <StackPanel Spacing="10">
-            <TextBlock Text="APPEARANCE"
-                       FontSize="10"
-                       FontWeight="SemiBold"
-                       LetterSpacing="1.2"
-                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
-            <WrapPanel>
-              <ToggleButton Content="Dark theme"
-                            Margin="0,0,6,6"
-                            IsChecked="{Binding IsDarkTheme, Mode=OneWay}"
-                            Command="{Binding ToggleThemeCommand}" />
-            </WrapPanel>
-          </StackPanel>
-        </StackPanel>
+        </Grid>
       </Border>
     </Border>
   </Grid>

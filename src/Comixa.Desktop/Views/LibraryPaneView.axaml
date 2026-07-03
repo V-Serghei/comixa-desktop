@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Comixa.Desktop.ViewModels"
              x:Class="Comixa.Desktop.Views.LibraryPaneView"
@@ -12,7 +12,7 @@
               Background="Transparent"
               BorderThickness="0"
               Padding="4"
-              MinWidth="112"
+              MinWidth="122"
               HorizontalAlignment="Center"
               Cursor="Hand">
         <Button.ContextMenu>
@@ -34,13 +34,13 @@
         </Button.ContextMenu>
 
         <Panel>
-          <Border Width="100"
+          <Border Width="112"
                   Background="{DynamicResource ComixaSurfaceBrush}"
                   BorderBrush="{DynamicResource ComixaOutlineBrush}"
                   BorderThickness="1"
-                  CornerRadius="7"
+                  CornerRadius="8"
                   ClipToBounds="True">
-            <Grid RowDefinitions="130,Auto,3">
+            <Grid RowDefinitions="146,Auto,4">
               <Border Background="{DynamicResource ComixaSurfaceVariantBrush}">
                 <Grid>
                   <Image Source="{Binding Item.CoverImage}"
@@ -51,8 +51,8 @@
                           VerticalAlignment="Top"
                           Background="{DynamicResource ComixaPrimaryBrush}"
                           CornerRadius="0,0,0,5"
-                          Padding="5,2">
-                    <TextBlock Text="✓"
+                          Padding="6,2">
+                    <TextBlock Text="Read"
                                FontSize="10"
                                FontWeight="Bold"
                                Foreground="#001B12" />
@@ -81,7 +81,7 @@
               <StackPanel Grid.Row="1" Margin="6,5,6,5">
                 <TextBlock Text="{Binding Item.Title}"
                            Foreground="{DynamicResource ComixaOnSurfaceBrush}"
-                           FontSize="10"
+                           FontSize="11"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
                            MaxLines="2"
@@ -102,10 +102,10 @@
             </Grid>
           </Border>
 
-          <Border Width="100"
+          <Border Width="112"
                   BorderBrush="{DynamicResource ComixaPrimaryBrush}"
                   BorderThickness="2"
-                  CornerRadius="7"
+                  CornerRadius="8"
                   IsVisible="{Binding IsCurrentlyOpen}" />
         </Panel>
       </Button>
@@ -116,16 +116,16 @@
               Background="Transparent"
               BorderThickness="0"
               Padding="4"
-              MinWidth="112"
+              MinWidth="122"
               HorizontalAlignment="Center"
               Cursor="Hand">
-        <Border Width="100"
+        <Border Width="112"
                 Background="{DynamicResource ComixaSurfaceBrush}"
                 BorderBrush="{DynamicResource ComixaOutlineBrush}"
                 BorderThickness="1"
-                CornerRadius="7"
+                CornerRadius="8"
                 ClipToBounds="True">
-          <Grid RowDefinitions="130,Auto,3">
+          <Grid RowDefinitions="146,Auto,4">
             <Panel Background="{DynamicResource ComixaSurfaceVariantBrush}">
               <Image Source="{Binding Cover.CoverImage}"
                      Stretch="UniformToFill"
@@ -152,7 +152,7 @@
             <StackPanel Grid.Row="1" Margin="6,5,6,5">
               <TextBlock Text="{Binding SeriesName}"
                          Foreground="{DynamicResource ComixaOnSurfaceBrush}"
-                         FontSize="10"
+                         FontSize="11"
                          FontWeight="SemiBold"
                          TextWrapping="Wrap"
                          MaxLines="2"
@@ -177,43 +177,41 @@
 
   <Grid x:Name="LibraryContent"
         RowDefinitions="Auto,Auto,Auto,Auto,*"
-        Margin="12,10,12,0">
-    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-      <TextBlock Text="{Binding LibraryViewTitle}"
-                 FontSize="18"
-                 FontWeight="SemiBold"
-                 Foreground="{DynamicResource ComixaOnSurfaceBrush}"
-                 VerticalAlignment="Center" />
+        Margin="18,16,18,0">
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+      <StackPanel Spacing="3">
+        <TextBlock Text="{Binding LibraryViewTitle}"
+                   FontSize="20"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource ComixaOnSurfaceBrush}"
+                   VerticalAlignment="Center" />
+        <TextBlock Text="{Binding StatusMessage}"
+                   FontSize="11"
+                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+      </StackPanel>
       <StackPanel Grid.Column="1"
                   Orientation="Horizontal"
                   Spacing="8"
                   VerticalAlignment="Center">
-        <TextBlock Text="{Binding StatusMessage}"
-                   FontSize="10"
-                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
-                   VerticalAlignment="Center"
-                   HorizontalAlignment="Right"
-                   MaxWidth="120"
-                   TextTrimming="CharacterEllipsis" />
-        <Button Content="+ Folder"
+        <Button Content="Add Folder"
                 Command="{Binding ScanFolderCommand}"
-                Background="{DynamicResource ComixaPrimaryBrush}"
-                Foreground="#001B12" />
+                Classes="primaryButton" />
         <Button Content="Refresh"
-                Command="{Binding RefreshLibraryCommand}" />
+                Command="{Binding RefreshLibraryCommand}"
+                Classes="chromeButton" />
       </StackPanel>
     </Grid>
 
     <Grid Grid.Row="1"
           ColumnDefinitions="*,Auto"
-          Margin="0,0,0,8"
+          Margin="0,0,0,10"
           IsVisible="{Binding IsLibraryToolsVisible}">
-      <TextBox Text="{Binding SearchQuery}" PlaceholderText="Search..." />
+      <TextBox Text="{Binding SearchQuery}" PlaceholderText="Search library..." />
       <Button Grid.Column="1"
               Content="Clear"
               Command="{Binding ClearSearchCommand}"
               IsVisible="{Binding HasSearchQuery}"
-              Background="Transparent"
+              Classes="chromeButton"
               Margin="4,0,0,0" />
     </Grid>
 
@@ -222,22 +220,27 @@
                Margin="0,0,0,6"
                IsVisible="{Binding IsLibraryToolsVisible}">
       <ToggleButton Content="Unread"
+                    Classes="filterChip"
                     Margin="0,0,4,4"
                     IsChecked="{Binding ShowUnreadOnly, Mode=OneWay}"
                     Command="{Binding ToggleUnreadOnlyCommand}" />
       <ToggleButton Content="CBZ"
+                    Classes="filterChip"
                     Margin="0,0,4,4"
                     IsChecked="{Binding IsCbzFilterActive, Mode=OneWay}"
                     Command="{Binding ToggleCbzFilterCommand}" />
       <ToggleButton Content="ZIP"
+                    Classes="filterChip"
                     Margin="0,0,4,4"
                     IsChecked="{Binding IsZipFilterActive, Mode=OneWay}"
                     Command="{Binding ToggleZipFilterCommand}" />
       <ToggleButton Content="PDF"
+                    Classes="filterChip"
                     Margin="0,0,4,4"
                     IsChecked="{Binding IsPdfFilterActive, Mode=OneWay}"
                     Command="{Binding TogglePdfFilterCommand}" />
       <ToggleButton Content="CBR"
+                    Classes="filterChip"
                     Margin="0,0,4,4"
                     IsChecked="{Binding IsCbrFilterActive, Mode=OneWay}"
                     Command="{Binding ToggleCbrFilterCommand}" />

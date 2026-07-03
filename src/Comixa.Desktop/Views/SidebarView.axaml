@@ -4,107 +4,113 @@
              x:Class="Comixa.Desktop.Views.SidebarView"
              x:DataType="vm:MainWindowViewModel"
              x:CompileBindings="False">
-  <Border Background="{DynamicResource ComixaSurfaceBrush}">
+  <Border Background="{DynamicResource ComixaSurfaceElevatedBrush}">
     <Grid RowDefinitions="*,Auto">
       <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="0,8,0,8">
-          <TextBlock Text="LIBRARY"
-                     Margin="16,8,0,6"
-                     FontSize="9"
-                     FontWeight="SemiBold"
-                     LetterSpacing="1.5"
-                     Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+        <StackPanel Margin="10,12,10,12" Spacing="16">
+          <StackPanel Spacing="4" Margin="4,0,4,0">
+            <TextBlock Text="Local library"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+            <TextBlock Text="{Binding LibraryStatsLabel}"
+                       FontSize="11"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+          </StackPanel>
 
-          <Panel>
-            <Border IsVisible="{Binding IsViewAllBooks}"
-                    BorderBrush="{DynamicResource ComixaPrimaryBrush}"
-                    BorderThickness="3,0,0,0" />
-            <Button Command="{Binding NavigateToAllBooksCommand}"
-                    Classes="sidebarButton"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Left"
-                    Padding="16,8"
-                    Margin="0,1"
-                    BorderThickness="0">
-              <TextBlock Text="Home" FontSize="13" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
-            </Button>
-          </Panel>
+          <StackPanel Spacing="6">
+            <TextBlock Text="LIBRARY"
+                       Margin="6,0,0,0"
+                       FontSize="9"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.5"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <ItemsControl ItemsSource="{Binding PrimaryNavigationItems}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:SidebarNavigationItemViewModel">
+                  <Panel Margin="0,1">
+                    <Border IsVisible="{Binding IsActive}"
+                            BorderBrush="{DynamicResource ComixaPrimaryBrush}"
+                            BorderThickness="3,0,0,0"
+                            CornerRadius="3" />
+                    <Button Command="{Binding Command}"
+                            Classes="sidebarButton"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            Padding="12,8"
+                            BorderThickness="0">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{Binding Label}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Detail}"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                                   IsVisible="{Binding HasDetail}" />
+                      </Grid>
+                    </Button>
+                  </Panel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
 
-          <Panel>
-            <Border IsVisible="{Binding IsViewSeries}"
-                    BorderBrush="{DynamicResource ComixaPrimaryBrush}"
-                    BorderThickness="3,0,0,0" />
-            <Button Command="{Binding NavigateToSeriesCommand}"
-                    Classes="sidebarButton"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Left"
-                    Padding="16,8"
-                    Margin="0,1"
-                    BorderThickness="0">
-              <TextBlock Text="Series" FontSize="13" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
-            </Button>
-          </Panel>
+          <StackPanel Spacing="6">
+            <TextBlock Text="STATUS"
+                       Margin="6,0,0,0"
+                       FontSize="9"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.5"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <ItemsControl ItemsSource="{Binding StatusNavigationItems}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:SidebarNavigationItemViewModel">
+                  <Panel Margin="0,1">
+                    <Border IsVisible="{Binding IsActive}"
+                            BorderBrush="{DynamicResource ComixaPrimaryBrush}"
+                            BorderThickness="3,0,0,0"
+                            CornerRadius="3" />
+                    <Button Command="{Binding Command}"
+                            Classes="sidebarButton"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            Padding="12,8"
+                            BorderThickness="0">
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{Binding Label}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Detail}"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+                      </Grid>
+                    </Button>
+                  </Panel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
 
-          <TextBlock Text="STATUS"
-                     Margin="16,14,0,6"
-                     FontSize="9"
-                     FontWeight="SemiBold"
-                     LetterSpacing="1.5"
-                     Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
-
-          <Panel>
-            <Border IsVisible="{Binding IsViewStarted}"
-                    BorderBrush="{DynamicResource ComixaPrimaryBrush}"
-                    BorderThickness="3,0,0,0" />
-            <Button Command="{Binding NavigateToStartedCommand}"
-                    Classes="sidebarButton"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Left"
-                    Padding="16,8"
-                    Margin="0,1"
-                    BorderThickness="0">
-              <TextBlock Text="Started" FontSize="13" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
-            </Button>
-          </Panel>
-
-          <Panel>
-            <Border IsVisible="{Binding IsViewRead}"
-                    BorderBrush="{DynamicResource ComixaPrimaryBrush}"
-                    BorderThickness="3,0,0,0" />
-            <Button Command="{Binding NavigateToReadCommand}"
-                    Classes="sidebarButton"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Left"
-                    Padding="16,8"
-                    Margin="0,1"
-                    BorderThickness="0">
-              <TextBlock Text="Read" FontSize="13" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
-            </Button>
-          </Panel>
-
-          <Panel>
-            <Border IsVisible="{Binding IsViewUnread}"
-                    BorderBrush="{DynamicResource ComixaPrimaryBrush}"
-                    BorderThickness="3,0,0,0" />
-            <Button Command="{Binding NavigateToUnreadCommand}"
-                    Classes="sidebarButton"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Left"
-                    Padding="16,8"
-                    Margin="0,1"
-                    BorderThickness="0">
-              <TextBlock Text="Unread" FontSize="13" Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
-            </Button>
-          </Panel>
-
-          <TextBlock Text="FOLDERS"
-                     Margin="16,14,0,6"
-                     FontSize="9"
-                     FontWeight="SemiBold"
-                     LetterSpacing="1.5"
-                     Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
-
-          <ItemsControl ItemsSource="{Binding LibraryFolders}">
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto" Margin="6,0,0,0">
+              <TextBlock Text="FOLDERS"
+                         FontSize="9"
+                         FontWeight="SemiBold"
+                         LetterSpacing="1.5"
+                         Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+              <Button Grid.Column="1"
+                      Content="+"
+                      Command="{Binding ScanFolderCommand}"
+                      Classes="sidebarButton"
+                      Padding="6,0"
+                      FontSize="14"
+                      Foreground="{DynamicResource ComixaPrimaryBrush}"
+                      ToolTip.Tip="Add folder" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding LibraryFolders}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:LibraryFolderViewModel">
                 <Panel Margin="4,1">
@@ -115,27 +121,36 @@
                           Classes="sidebarButton"
                           HorizontalAlignment="Stretch"
                           HorizontalContentAlignment="Left"
-                          Padding="12,7"
+                          Padding="10,8"
                           BorderThickness="0">
                     <StackPanel Spacing="2">
                       <TextBlock Text="{Binding Name}"
                                  FontSize="12"
+                                 FontWeight="SemiBold"
                                  Foreground="{DynamicResource ComixaOnSurfaceBrush}"
                                  TextTrimming="CharacterEllipsis"
-                                 MaxWidth="126" />
-                      <TextBlock Text="{Binding Path}"
-                                 FontSize="9"
-                                 Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
-                                 TextTrimming="CharacterEllipsis"
-                                 MaxWidth="126" />
+                                 MaxWidth="174" />
+                      <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{Binding Path}"
+                                   FontSize="9"
+                                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxWidth="132" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding CountLabel}"
+                                   FontSize="9"
+                                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+                      </Grid>
                     </StackPanel>
                   </Button>
                 </Panel>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
+          </StackPanel>
 
-          <Grid ColumnDefinitions="*,Auto" Margin="16,14,8,4">
+          <StackPanel Spacing="6">
+          <Grid ColumnDefinitions="*,Auto" Margin="6,0,0,0">
             <TextBlock Text="SHELVES"
                        FontSize="9"
                        FontWeight="SemiBold"
@@ -148,7 +163,7 @@
                     Classes="sidebarButton"
                     Background="Transparent"
                     BorderThickness="0"
-                    Padding="4,2"
+                    Padding="6,0"
                     FontSize="16"
                     Foreground="{DynamicResource ComixaPrimaryBrush}"
                     ToolTip.Tip="New shelf" />
@@ -163,14 +178,14 @@
                     Command="{Binding ConfirmNewShelfCommand}"
                     Classes="readerPrimaryButton"
                     Margin="4,0,0,0"
-                    Padding="6,4"
+                    Padding="8,5"
                     ToolTip.Tip="Create" />
             <Button Grid.Column="2"
                     Content="Cancel"
                     Command="{Binding CancelNewShelfCommand}"
                     Classes="sidebarButton"
                     Margin="2,0,0,0"
-                    Padding="6,4"
+                    Padding="8,5"
                     ToolTip.Tip="Cancel" />
           </Grid>
 
@@ -182,50 +197,81 @@
                           Classes="sidebarButton"
                           HorizontalAlignment="Stretch"
                           HorizontalContentAlignment="Left"
-                          Padding="16,7"
+                          Padding="12,8"
                           BorderThickness="0">
                     <TextBlock Text="{Binding Name}"
                                FontSize="12"
                                Foreground="{DynamicResource ComixaOnSurfaceBrush}"
                                TextTrimming="CharacterEllipsis"
-                               MaxWidth="108" />
+                               MaxWidth="138" />
                   </Button>
                   <Button Grid.Column="1"
-                          Content="X"
+                          Content="Remove"
                           Command="{Binding DeleteCommand}"
-                          Classes="sidebarButton"
+                          Classes="dangerButton"
                           BorderThickness="0"
                           Padding="6,7"
-                          FontSize="12"
-                          Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                          FontSize="10"
                           ToolTip.Tip="Delete shelf" />
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
+          </StackPanel>
+
+          <StackPanel Spacing="8">
+            <TextBlock Text="ACTIVITY"
+                       Margin="6,0,0,0"
+                       FontSize="9"
+                       FontWeight="SemiBold"
+                       LetterSpacing="1.5"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+            <ItemsControl ItemsSource="{Binding ActivityItems}" IsVisible="{Binding HasActivity}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ActivityItemViewModel">
+                  <Grid ColumnDefinitions="44,*" Margin="4,0,4,8">
+                    <TextBlock Text="{Binding TimeLabel}"
+                               FontSize="10"
+                               Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+                    <StackPanel Grid.Column="1" Spacing="1">
+                      <TextBlock Text="{Binding Title}"
+                                 FontSize="11"
+                                 FontWeight="SemiBold"
+                                 Foreground="{DynamicResource ComixaOnSurfaceBrush}"
+                                 TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding Detail}"
+                                 FontSize="9"
+                                 MaxLines="1"
+                                 IsVisible="{Binding HasDetail}"
+                                 Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                                 TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
         </StackPanel>
       </ScrollViewer>
 
       <Border Grid.Row="1"
               BorderBrush="{DynamicResource ComixaOutlineBrush}"
               BorderThickness="0,1,0,0">
-        <Button Command="{Binding ToggleThemeCommand}"
-                Classes="sidebarButton"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Left"
-                Padding="16,10"
-                BorderThickness="0">
-          <StackPanel Orientation="Horizontal" Spacing="10">
-            <TextBlock Text="Light mode"
-                       FontSize="12"
-                       IsVisible="{Binding IsDarkTheme}"
-                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
-            <TextBlock Text="Dark mode"
-                       FontSize="12"
-                       IsVisible="{Binding IsLightTheme}"
-                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
-          </StackPanel>
-        </Button>
+        <Grid ColumnDefinitions="*,Auto" Margin="10,8">
+          <Button Command="{Binding RefreshLibraryCommand}"
+                  Classes="sidebarButton"
+                  HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Left"
+                  Padding="10,8"
+                  BorderThickness="0"
+                  Content="Refresh" />
+          <Button Grid.Column="1"
+                  Command="{Binding ToggleSettingsPanelCommand}"
+                  Classes="sidebarButton"
+                  Padding="10,8"
+                  BorderThickness="0"
+                  Content="Settings" />
+        </Grid>
       </Border>
     </Grid>
   </Border>

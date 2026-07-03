@@ -16,9 +16,10 @@ namespace Comixa.Desktop.ViewModels;
 
 public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 {
-    private const double LibraryCardSlotWidth = 120;
-    private const double LibraryViewportPadding = 48;
+    private const double LibraryCardSlotWidth = 128;
+    private const double LibraryViewportPadding = 44;
     private const int MaxLibraryItemsPerRow = 40;
+    private const int MaxActivityItems = 48;
 
     private readonly IFolderPicker _folderPicker;
     private readonly IComicLibraryScanner _comicLibraryScanner;
@@ -58,6 +59,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     // Settings state
     private bool _isSettingsPanelVisible;
     private bool _isReaderSettingsPanelVisible;
+    private SettingsPanelTab _settingsPanelTab = SettingsPanelTab.Application;
     private bool _isDarkTheme = true;
     private ReadingDirection _readingDirection = ReadingDirection.LeftToRight;
     private FitMode _fitMode = FitMode.FitPage;
@@ -144,6 +146,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         NavigateToStartedCommand = new RelayCommand(() => NavigateToStatusFilter(LibraryStatusFilter.Started));
         NavigateToReadCommand = new RelayCommand(() => NavigateToStatusFilter(LibraryStatusFilter.Read));
         NavigateToUnreadCommand = new RelayCommand(() => NavigateToStatusFilter(LibraryStatusFilter.Unread));
+        BuildSidebarNavigation();
 
         // UI Prev/Next (direction-aware for RTL)
         PreviousPageCommand = new RelayCommand(
@@ -190,6 +193,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         SetReaderColorToneCommand = new RelayCommand<string>(SetReaderColorTone);
         SetReaderAnimationCommand = new RelayCommand<string>(SetReaderAnimation);
         SetSortOrderCommand = new RelayCommand<string>(SetSortOrder);
+        SetSettingsTabCommand = new RelayCommand<string>(SetSettingsPanelTab);
         ToggleUnreadOnlyCommand = new RelayCommand(ToggleUnreadOnly);
         ToggleCbzFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Cbz));
         ToggleZipFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Zip));
@@ -223,6 +227,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public ObservableCollection<ReaderPageViewModel> VerticalPages { get; } = [];
     public ObservableCollection<ShelfViewModel> Shelves { get; } = [];
     public ObservableCollection<LibraryFolderViewModel> LibraryFolders { get; } = [];
+    public ObservableCollection<SidebarNavigationItemViewModel> PrimaryNavigationItems { get; } = [];
+    public ObservableCollection<SidebarNavigationItemViewModel> StatusNavigationItems { get; } = [];
+    public ObservableCollection<ActivityItemViewModel> ActivityItems { get; } = [];
 
     // Commands - navigation
     public RelayCommand NavigateToAllBooksCommand { get; }
@@ -265,6 +272,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     // Commands - library
     public RelayCommand ToggleSettingsPanelCommand { get; }
     public RelayCommand<string> SetSortOrderCommand { get; }
+    public RelayCommand<string> SetSettingsTabCommand { get; }
     public RelayCommand ToggleUnreadOnlyCommand { get; }
     public RelayCommand ToggleCbzFilterCommand { get; }
     public RelayCommand ToggleZipFilterCommand { get; }
@@ -327,6 +335,11 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public bool IsHomeView => IsViewAllBooks;
     public bool IsLibraryToolsVisible => !IsHomeView;
     public bool HasLibraryFolders => LibraryFolders.Count > 0;
+    public bool HasActivity => ActivityItems.Count > 0;
+    public string LibraryStatsLabel =>
+        $"{_allBooks.Count} comics - {GetSeriesCount()} series - {LibraryFolders.Count} folders";
+    public string FolderStatsLabel => LibraryFolders.Count == 1 ? "1 watched folder" : $"{LibraryFolders.Count} watched folders";
+    public string ActivityStatsLabel => ActivityItems.Count == 1 ? "1 recent event" : $"{ActivityItems.Count} recent events";
 
     public string LibraryViewTitle
     {
@@ -421,6 +434,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     // Settings state
     public bool IsSettingsPanelVisible => _isSettingsPanelVisible;
     public bool IsReaderSettingsPanelVisible => _isReaderSettingsPanelVisible;
+    public bool IsSettingsApplicationTab => _settingsPanelTab == SettingsPanelTab.Application;
+    public bool IsSettingsLibraryTab => _settingsPanelTab == SettingsPanelTab.Library;
+    public bool IsSettingsReaderTab => _settingsPanelTab == SettingsPanelTab.Reader;
     public bool IsDarkTheme => _isDarkTheme;
     public bool IsLightTheme => !_isDarkTheme;
     public string ThemeToggleLabel => _isDarkTheme ? "Light" : "Dark";
@@ -436,7 +452,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public bool OpenPreviousChapterAtLastPage => _openPreviousChapterAtLastPage;
     public string ReaderPreviewPaneLabel => _isReaderPreviewPaneEnabled ? "Hide Reader" : "Show Reader";
     public GridLength LibraryPaneWidth =>
-        _isReaderPreviewPaneEnabled ? new GridLength(340) : new GridLength(1, GridUnitType.Star);
+        _isReaderPreviewPaneEnabled ? new GridLength(420) : new GridLength(1, GridUnitType.Star);
     public GridLength ReaderPreviewSplitterWidth =>
         _isReaderPreviewPaneEnabled ? new GridLength(4) : new GridLength(0);
     public GridLength ReaderPreviewPaneWidth =>
@@ -634,10 +650,80 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         return pageCount > 0 && pageNumber >= pageCount ? 0 : pageNumber;
     }
 
+    private void BuildSidebarNavigation()
+    {
+        PrimaryNavigationItems.Clear();
+        PrimaryNavigationItems.Add(new SidebarNavigationItemViewModel("Home", "", NavigateToAllBooksCommand));
+        PrimaryNavigationItems.Add(new SidebarNavigationItemViewModel("Series", "", NavigateToSeriesCommand));
+
+        StatusNavigationItems.Clear();
+        StatusNavigationItems.Add(new SidebarNavigationItemViewModel("Started", "", NavigateToStartedCommand));
+        StatusNavigationItems.Add(new SidebarNavigationItemViewModel("Read", "", NavigateToReadCommand));
+        StatusNavigationItems.Add(new SidebarNavigationItemViewModel("Unread", "", NavigateToUnreadCommand));
+
+        UpdateSidebarNavigationItems();
+    }
+
+    private void UpdateSidebarNavigationItems()
+    {
+        if (PrimaryNavigationItems.Count >= 2)
+        {
+            PrimaryNavigationItems[0].SetState(IsViewAllBooks, $"{_allBooks.Count} comics");
+            PrimaryNavigationItems[1].SetState(IsViewSeries, $"{GetSeriesCount()} groups");
+        }
+
+        if (StatusNavigationItems.Count >= 3)
+        {
+            StatusNavigationItems[0].SetState(IsViewStarted, $"{_allBooks.Count(book => book.IsStarted)} active");
+            StatusNavigationItems[1].SetState(IsViewRead, $"{_allBooks.Count(book => book.IsRead)} done");
+            StatusNavigationItems[2].SetState(IsViewUnread, $"{_allBooks.Count(book => book.IsUnread)} new");
+        }
+    }
+
+    private void NotifyLibrarySummaryProps()
+    {
+        UpdateSidebarNavigationItems();
+        UpdateFolderBookCounts();
+        RaisePropertyChanged(nameof(HasLibraryFolders));
+        RaisePropertyChanged(nameof(LibraryStatsLabel));
+        RaisePropertyChanged(nameof(FolderStatsLabel));
+    }
+
+    private void UpdateFolderBookCounts()
+    {
+        foreach (var folder in LibraryFolders)
+        {
+            folder.SetBookCount(_allBooks.Count(book => IsInsideFolder(book.FilePath, folder.Path)));
+        }
+    }
+
+    private int GetSeriesCount()
+    {
+        return _allBooks
+            .Select(ResolveSeriesGroupName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+    }
+
+    private void RecordActivity(ActivityKind kind, string title, string detail = "")
+    {
+        ActivityItems.Insert(0, new ActivityItemViewModel(kind, title, detail, DateTimeOffset.Now));
+        while (ActivityItems.Count > MaxActivityItems)
+        {
+            ActivityItems.RemoveAt(ActivityItems.Count - 1);
+        }
+
+        RaisePropertyChanged(nameof(HasActivity));
+        RaisePropertyChanged(nameof(ActivityStatsLabel));
+    }
+
     // --- Initialization ---
 
     private async Task InitializeAsync()
     {
+        RecordActivity(ActivityKind.Info, "Comixa started", "Loading preferences and local library.");
         var prefs = await _preferencesStore.LoadAsync();
         _isDarkTheme = prefs.IsDarkTheme;
         _readingDirection = prefs.ReadingDirection;
@@ -662,6 +748,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
         await LoadShelvesAsync();
         await LoadSavedFoldersAsync();
+        RecordActivity(ActivityKind.Info, "Library ready", LibraryStatsLabel);
     }
 
     private async Task LoadShelvesAsync()
@@ -702,6 +789,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
         await _settingsStore.SaveAsync(new UserLibrarySettings(folders));
         RebuildFolderVMs(folders);
+        RecordActivity(ActivityKind.Library, "Folder added", folder);
         await ScanFoldersAsync(folders);
     }
 
@@ -712,9 +800,11 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         if (settings.WatchedFolders.Count == 0)
         {
             StatusMessage = "No watched folders yet.";
+            RecordActivity(ActivityKind.Warning, "Refresh skipped", "No watched folders configured.");
             return;
         }
 
+        RecordActivity(ActivityKind.Library, "Refresh started", FolderStatsLabel);
         await ScanFoldersAsync(settings.WatchedFolders);
     }
 
@@ -722,6 +812,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     {
         _isLoadingLibrary = true;
         StatusMessage = "Scanning library...";
+        RecordActivity(ActivityKind.Library, "Scanning library", $"{folders.Count} folder{(folders.Count == 1 ? "" : "s")}");
         RaisePropertyChanged(nameof(IsLibraryEmpty));
 
         var existingFolders = folders.Where(Directory.Exists).ToArray();
@@ -733,12 +824,14 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            RecordActivity(ActivityKind.Warning, "Scan failed", exception.Message);
             await LoadLibraryFromDatabaseAsync("Scan failed. Showing saved library.");
             return;
         }
 
         if (existingFolders.Length > 0 && scannedFiles.Count == 0)
         {
+            RecordActivity(ActivityKind.Warning, "Scan found nothing", string.Join(", ", existingFolders.Select(GetFolderDisplayName)));
             await LoadLibraryFromDatabaseAsync(_allBooks.Count > 0
                 ? $"{_allBooks.Count} saved comics shown. Scan found no readable files."
                 : "No CBZ, ZIP, PDF, CBR or image folders found.");
@@ -765,6 +858,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         await LoadLibraryFromDatabaseAsync();
+        RecordActivity(ActivityKind.Library, "Scan complete", $"{scannedFiles.Count} files, {obsoleteBooks.Length} removed");
     }
 
     private async Task LoadLibraryFromDatabaseAsync(string? statusMessage = null)
@@ -792,6 +886,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
         RaisePropertyChanged(nameof(IsLibraryEmpty));
         RaisePropertyChanged(nameof(LibraryViewTitle));
+        NotifyLibrarySummaryProps();
         UpdateSeriesBookNavigation();
         RefreshDisplayedItems();
 
@@ -811,6 +906,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         ResetLibraryFilters();
         NotifyNavigationProps();
         RefreshDisplayedItems();
+        RecordActivity(ActivityKind.Library, "Opened Home", LibraryStatsLabel);
     }
 
     private void NavigateToSeries()
@@ -824,6 +920,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         ResetLibraryFilters();
         NotifyNavigationProps();
         RefreshDisplayedItems();
+        RecordActivity(ActivityKind.Library, "Opened Series", $"{GetSeriesCount()} series groups");
     }
 
     private void NavigateToStatusFilter(LibraryStatusFilter filter)
@@ -838,6 +935,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         RaisePropertyChanged(nameof(ShowUnreadOnly));
         NotifyNavigationProps();
         RefreshDisplayedItems();
+        RecordActivity(ActivityKind.Library, $"Opened {filter}", StatusMessage);
     }
 
     private void NotifyNavigationProps()
@@ -847,6 +945,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         foreach (var vm in LibraryFolders)
             vm.IsActive = _activeFolderPath is not null && vm.Path.Equals(_activeFolderPath, StringComparison.OrdinalIgnoreCase);
 
+        UpdateSidebarNavigationItems();
         RaisePropertyChanged(nameof(IsViewAllBooks));
         RaisePropertyChanged(nameof(IsHomeView));
         RaisePropertyChanged(nameof(IsLibraryToolsVisible));
@@ -886,6 +985,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _isInSeriesDetail = false;
         NotifyNavigationProps();
         RefreshDisplayedItems();
+        RecordActivity(ActivityKind.Library, "Opened shelf", _activeShelfName);
     }
 
     private async void DeleteShelf(Guid shelfId)
@@ -898,7 +998,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             _activeShelfId = null;
             _activeShelfName = "";
         }
+        RecordActivity(ActivityKind.Library, "Shelf deleted", "");
         RebuildShelfVMs();
+        NotifyLibrarySummaryProps();
         NotifyNavigationProps();
         RefreshDisplayedItems();
     }
@@ -918,7 +1020,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         RaisePropertyChanged(nameof(IsCreatingShelf));
 
         RebuildShelfVMs();
+        NotifyLibrarySummaryProps();
         RefreshDisplayedItems();
+        RecordActivity(ActivityKind.Library, "Shelf created", shelf.Name);
     }
 
     private void StartCreatingShelf()
@@ -944,6 +1048,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         RefreshDisplayedItems();
+        RecordActivity(ActivityKind.Library, addToShelf ? "Added to shelf" : "Removed from shelf", "");
     }
 
     private void RebuildShelfVMs()
@@ -967,19 +1072,48 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _isInSeriesDetail = false;
         NotifyNavigationProps();
         RefreshDisplayedItems();
+        RecordActivity(ActivityKind.Library, "Opened folder", folderPath);
+    }
+
+    private async Task RemoveLibraryFolderAsync(string folderPath)
+    {
+        var settings = await _settingsStore.LoadAsync();
+        var folders = settings.WatchedFolders
+            .Where(path => !path.Equals(folderPath, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        await _settingsStore.SaveAsync(new UserLibrarySettings(folders));
+
+        var books = await _comicRepository.GetAllAsync();
+        foreach (var book in books.Where(book => IsInsideFolder(book.FilePath, folderPath)).ToArray())
+        {
+            await _comicRepository.DeleteAsync(book.Id);
+        }
+
+        if (_activeFolderPath is not null &&
+            _activeFolderPath.Equals(folderPath, StringComparison.OrdinalIgnoreCase))
+        {
+            _activeFolderPath = null;
+        }
+
+        RebuildFolderVMs(folders);
+        RecordActivity(ActivityKind.Library, "Folder removed", folderPath);
+        await LoadLibraryFromDatabaseAsync($"{GetFolderDisplayName(folderPath)} removed from library.");
+        NotifyNavigationProps();
     }
 
     private void RebuildFolderVMs(IReadOnlyList<string> folderPaths)
     {
         LibraryFolders.Clear();
-        foreach (var folderPath in folderPaths.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
+        foreach (var folderPath in folderPaths.Where(path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            var vm = new LibraryFolderViewModel(folderPath, SelectFolder);
+            var vm = new LibraryFolderViewModel(folderPath, SelectFolder, RemoveLibraryFolderAsync);
             vm.IsActive = _activeFolderPath is not null && folderPath.Equals(_activeFolderPath, StringComparison.OrdinalIgnoreCase);
+            vm.SetBookCount(_allBooks.Count(book => IsInsideFolder(book.FilePath, folderPath)));
             LibraryFolders.Add(vm);
         }
 
-        RaisePropertyChanged(nameof(HasLibraryFolders));
+        NotifyLibrarySummaryProps();
     }
 
     private IReadOnlyList<ShelfMenuItemViewModel> BuildShelfMenuItems(Guid bookId)
@@ -1003,7 +1137,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         await _progressRepository.SaveAsync(progress);
         book.SetProgress(progress);
         _progressMap[progress.ComicBookId] = progress;
+        NotifyLibrarySummaryProps();
         RefreshDisplayedItems();
+        RecordActivity(ActivityKind.Library, "Marked as read", book.Title);
     }
 
     private async void MarkBookAsUnread(ComicBookListItemViewModel book)
@@ -1011,7 +1147,9 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         await _progressRepository.DeleteAsync(book.ComicBook.Id);
         book.SetProgress(null);
         _progressMap.Remove(book.ComicBook.Id);
+        NotifyLibrarySummaryProps();
         RefreshDisplayedItems();
+        RecordActivity(ActivityKind.Library, "Marked as unread", book.Title);
     }
 
     // --- Library navigation (series detail) ---
@@ -1026,6 +1164,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         RaisePropertyChanged(nameof(CurrentSeriesName));
         RaisePropertyChanged(nameof(SeriesBooks));
         RaisePropertyChanged(nameof(HasSeriesVariants));
+        RecordActivity(ActivityKind.Library, "Opened series", series.SeriesName);
     }
 
     private void BackToLibrary()
@@ -1096,6 +1235,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         // Mark as "started" (page 0) if no prior progress
         if (!book.HasProgress)
             _ = SaveStartedProgressAsync(book);
+
+        RecordActivity(ActivityKind.Reader, "Opened book", book.Title);
     }
 
     private async Task SaveStartedProgressAsync(ComicBookListItemViewModel book)
@@ -1104,6 +1245,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         await _progressRepository.SaveAsync(progress);
         book.SetProgress(progress);
         _progressMap[progress.ComicBookId] = progress;
+        NotifyLibrarySummaryProps();
     }
 
     // --- Filter / Sort ---
@@ -1579,6 +1721,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         RaisePropertyChanged(nameof(IsSettingsPanelVisible));
+        RecordActivity(ActivityKind.Settings, _isSettingsPanelVisible ? "Opened settings" : "Closed settings", "");
     }
 
     private void ToggleReaderSettingsPanel()
@@ -1591,6 +1734,32 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         RaisePropertyChanged(nameof(IsReaderSettingsPanelVisible));
+        RecordActivity(ActivityKind.Settings, _isReaderSettingsPanelVisible ? "Opened reader settings" : "Closed reader settings", "");
+    }
+
+    private void SetSettingsPanelTab(string? key)
+    {
+        var nextTab = key switch
+        {
+            "library" => SettingsPanelTab.Library,
+            "reader" => SettingsPanelTab.Reader,
+            _ => SettingsPanelTab.Application
+        };
+
+        if (_settingsPanelTab == nextTab)
+        {
+            return;
+        }
+
+        _settingsPanelTab = nextTab;
+        NotifySettingsTabProps();
+    }
+
+    private void NotifySettingsTabProps()
+    {
+        RaisePropertyChanged(nameof(IsSettingsApplicationTab));
+        RaisePropertyChanged(nameof(IsSettingsLibraryTab));
+        RaisePropertyChanged(nameof(IsSettingsReaderTab));
     }
 
     private void ToggleFitMode()
@@ -1599,6 +1768,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         RaisePropertyChanged(nameof(IsFitPageMode));
         RaisePropertyChanged(nameof(IsFitWidthMode));
         RaisePropertyChanged(nameof(FitModeLabel));
+        RecordActivity(ActivityKind.Reader, "Fit mode changed", FitModeLabel);
     }
 
     private void ResetReaderViewToFitPage()
@@ -1635,6 +1805,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         RaisePropertyChanged(nameof(IsReaderFullscreen));
         RaisePropertyChanged(nameof(ReaderFullscreenLabel));
         NotifyGlobalSettingsProps();
+        RecordActivity(ActivityKind.Reader, isFullscreen ? "Entered fullscreen" : "Exited fullscreen", "");
     }
 
     private void ToggleOpenComicsAtLastPosition()
@@ -1642,6 +1813,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _openComicsAtLastPosition = !_openComicsAtLastPosition;
         NotifyGlobalSettingsProps();
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Settings, "Resume behavior changed", _openComicsAtLastPosition ? "Open at last position" : "Open from first page");
     }
 
     private void ToggleOpenComicsInFullscreen()
@@ -1655,6 +1827,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Settings, "Open fullscreen changed", _openComicsInFullscreen ? "Enabled" : "Disabled");
     }
 
     private void ToggleReaderPreviewPane()
@@ -1663,6 +1836,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         NotifyGlobalSettingsProps();
 
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Settings, "Reader preview changed", _isReaderPreviewPaneEnabled ? "Visible" : "Hidden");
     }
 
     private void ToggleOpenPreviousChapterAtLastPage()
@@ -1670,6 +1844,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _openPreviousChapterAtLastPage = !_openPreviousChapterAtLastPage;
         NotifyReaderSettingsProps();
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Settings, "Previous part behavior changed", _openPreviousChapterAtLastPage ? "Open at end" : "Open at first page");
     }
 
     private void ToggleTwoPageMode()
@@ -1684,6 +1859,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Reader, "Page layout changed", PageLayoutLabel);
     }
 
     private void ToggleEdgePageTurns()
@@ -1691,6 +1867,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _isEdgePageTurnEnabled = !_isEdgePageTurnEnabled;
         RaisePropertyChanged(nameof(IsEdgePageTurnEnabled));
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Settings, "Edge page turns changed", _isEdgePageTurnEnabled ? "Enabled" : "Disabled");
     }
 
     private void ToggleDragPageTurns()
@@ -1698,6 +1875,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _isDragPageTurnEnabled = !_isDragPageTurnEnabled;
         RaisePropertyChanged(nameof(IsDragPageTurnEnabled));
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Settings, "Drag page turns changed", _isDragPageTurnEnabled ? "Enabled" : "Disabled");
     }
 
     private void TogglePageTurnInversion()
@@ -1705,6 +1883,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _isPageTurnInverted = !_isPageTurnInverted;
         RaisePropertyChanged(nameof(IsPageTurnInverted));
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Settings, "Page turn inversion changed", _isPageTurnInverted ? "Enabled" : "Disabled");
     }
 
     private void ResetReaderDefaults()
@@ -1728,6 +1907,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Reader, "Reader defaults restored", "");
     }
 
     private void SetReaderWheelAction(string? key)
@@ -1740,6 +1920,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         };
         NotifyReaderSettingsProps();
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Reader, "Mouse wheel behavior changed", _readerWheelAction.ToString());
     }
 
     private void SetReaderColorTone(string? key)
@@ -1753,6 +1934,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         };
         NotifyReaderSettingsProps();
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Reader, "Reader tone changed", _readerColorTone.ToString());
     }
 
     private void SetReaderAnimation(string? key)
@@ -1765,6 +1947,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         };
         NotifyReaderSettingsProps();
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Reader, "Page animation changed", _readerPageAnimation.ToString());
     }
 
     public void AdjustReaderZoom(double wheelDelta)
@@ -1819,6 +2002,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         RaisePropertyChanged(nameof(ThemeToggleLabel));
         ApplyTheme();
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Settings, "Theme changed", _isDarkTheme ? "Dark" : "Light");
     }
 
     private void SetReadingDirection(string? key)
@@ -1840,6 +2024,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         _ = SavePreferencesAsync();
+        RecordActivity(ActivityKind.Reader, "Reading direction changed", _readingDirection.ToString());
     }
 
     private void ApplyTheme()
@@ -1893,6 +2078,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         {
             await _bookmarkRepository.DeleteForPageAsync(SelectedBook.ComicBook.Id, _currentPageIndex);
             _currentBookBookmarks.RemoveAll(b => b.PageNumber == _currentPageIndex);
+            RecordActivity(ActivityKind.Reader, "Bookmark removed", CurrentPageLabel);
         }
         else
         {
@@ -1904,6 +2090,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
                 DateTimeOffset.UtcNow);
             await _bookmarkRepository.AddAsync(bookmark);
             _currentBookBookmarks.Add(bookmark);
+            RecordActivity(ActivityKind.Reader, "Bookmark added", CurrentPageLabel);
         }
 
         RaisePropertyChanged(nameof(IsCurrentPageBookmarked));
@@ -2479,6 +2666,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         await Task.Run(() => _progressRepository.SaveAsync(progress));
         selectedBook.SetProgress(progress);
         _progressMap[progress.ComicBookId] = progress;
+        NotifyLibrarySummaryProps();
     }
 
     public void Dispose()
