@@ -230,6 +230,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public ObservableCollection<SidebarNavigationItemViewModel> PrimaryNavigationItems { get; } = [];
     public ObservableCollection<SidebarNavigationItemViewModel> StatusNavigationItems { get; } = [];
     public ObservableCollection<ActivityItemViewModel> ActivityItems { get; } = [];
+    public LibrarySummaryViewModel LibrarySummary { get; } = new();
 
     // Commands - navigation
     public RelayCommand NavigateToAllBooksCommand { get; }
@@ -336,9 +337,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public bool IsLibraryToolsVisible => !IsHomeView;
     public bool HasLibraryFolders => LibraryFolders.Count > 0;
     public bool HasActivity => ActivityItems.Count > 0;
-    public string LibraryStatsLabel =>
-        $"{_allBooks.Count} comics - {GetSeriesCount()} series - {LibraryFolders.Count} folders";
-    public string FolderStatsLabel => LibraryFolders.Count == 1 ? "1 watched folder" : $"{LibraryFolders.Count} watched folders";
+    public string LibraryStatsLabel => LibrarySummary.StatsLabel;
+    public string FolderStatsLabel => LibrarySummary.FolderStatsLabel;
     public string ActivityStatsLabel => ActivityItems.Count == 1 ? "1 recent event" : $"{ActivityItems.Count} recent events";
 
     public string LibraryViewTitle
@@ -653,13 +653,33 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private void BuildSidebarNavigation()
     {
         PrimaryNavigationItems.Clear();
-        PrimaryNavigationItems.Add(new SidebarNavigationItemViewModel("Home", "", NavigateToAllBooksCommand));
-        PrimaryNavigationItems.Add(new SidebarNavigationItemViewModel("Series", "", NavigateToSeriesCommand));
+        PrimaryNavigationItems.Add(new SidebarNavigationItemViewModel(
+            "Home",
+            "",
+            "M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z",
+            NavigateToAllBooksCommand));
+        PrimaryNavigationItems.Add(new SidebarNavigationItemViewModel(
+            "Series",
+            "",
+            "M4,6H20V8H4V6M4,11H20V13H4V11M4,16H14V18H4V16Z",
+            NavigateToSeriesCommand));
 
         StatusNavigationItems.Clear();
-        StatusNavigationItems.Add(new SidebarNavigationItemViewModel("Started", "", NavigateToStartedCommand));
-        StatusNavigationItems.Add(new SidebarNavigationItemViewModel("Read", "", NavigateToReadCommand));
-        StatusNavigationItems.Add(new SidebarNavigationItemViewModel("Unread", "", NavigateToUnreadCommand));
+        StatusNavigationItems.Add(new SidebarNavigationItemViewModel(
+            "Started",
+            "",
+            "M8,5V19L19,12L8,5Z",
+            NavigateToStartedCommand));
+        StatusNavigationItems.Add(new SidebarNavigationItemViewModel(
+            "Read",
+            "",
+            "M9,16.17L4.83,12L3.41,13.41L9,19L21,7L19.59,5.59L9,16.17Z",
+            NavigateToReadCommand));
+        StatusNavigationItems.Add(new SidebarNavigationItemViewModel(
+            "Unread",
+            "",
+            "M12,2A10,10 0,1 0,12 22A10,10 0,0 0,12 2M12,4A8,8 0,1 1,12 20A8,8 0,0 1,12 4Z",
+            NavigateToUnreadCommand));
 
         UpdateSidebarNavigationItems();
     }
@@ -668,25 +688,37 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     {
         if (PrimaryNavigationItems.Count >= 2)
         {
-            PrimaryNavigationItems[0].SetState(IsViewAllBooks, $"{_allBooks.Count} comics");
-            PrimaryNavigationItems[1].SetState(IsViewSeries, $"{GetSeriesCount()} groups");
+            PrimaryNavigationItems[0].SetState(IsViewAllBooks, $"{LibrarySummary.ComicCount} comics");
+            PrimaryNavigationItems[1].SetState(IsViewSeries, $"{LibrarySummary.SeriesCount} groups");
         }
 
         if (StatusNavigationItems.Count >= 3)
         {
-            StatusNavigationItems[0].SetState(IsViewStarted, $"{_allBooks.Count(book => book.IsStarted)} active");
-            StatusNavigationItems[1].SetState(IsViewRead, $"{_allBooks.Count(book => book.IsRead)} done");
-            StatusNavigationItems[2].SetState(IsViewUnread, $"{_allBooks.Count(book => book.IsUnread)} new");
+            StatusNavigationItems[0].SetState(IsViewStarted, $"{LibrarySummary.StartedCount} active");
+            StatusNavigationItems[1].SetState(IsViewRead, $"{LibrarySummary.ReadCount} done");
+            StatusNavigationItems[2].SetState(IsViewUnread, $"{LibrarySummary.UnreadCount} new");
         }
     }
 
     private void NotifyLibrarySummaryProps()
     {
+        RecalculateLibrarySummary();
         UpdateSidebarNavigationItems();
         UpdateFolderBookCounts();
         RaisePropertyChanged(nameof(HasLibraryFolders));
         RaisePropertyChanged(nameof(LibraryStatsLabel));
         RaisePropertyChanged(nameof(FolderStatsLabel));
+    }
+
+    private void RecalculateLibrarySummary()
+    {
+        LibrarySummary.Update(
+            _allBooks.Count,
+            CountSeriesGroups(),
+            LibraryFolders.Count,
+            _allBooks.Count(book => book.IsStarted),
+            _allBooks.Count(book => book.IsRead),
+            _allBooks.Count(book => book.IsUnread));
     }
 
     private void UpdateFolderBookCounts()
@@ -697,7 +729,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private int GetSeriesCount()
+    private int CountSeriesGroups()
     {
         return _allBooks
             .Select(ResolveSeriesGroupName)
@@ -920,7 +952,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         ResetLibraryFilters();
         NotifyNavigationProps();
         RefreshDisplayedItems();
-        RecordActivity(ActivityKind.Library, "Opened Series", $"{GetSeriesCount()} series groups");
+        RecordActivity(ActivityKind.Library, "Opened Series", $"{LibrarySummary.SeriesCount} series groups");
     }
 
     private void NavigateToStatusFilter(LibraryStatusFilter filter)
@@ -2036,20 +2068,30 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     private async Task SavePreferencesAsync()
     {
-        await _preferencesStore.SaveAsync(new UserPreferences(
-            _isDarkTheme,
-            _readingDirection,
-            _readerWheelAction,
-            _isEdgePageTurnEnabled,
-            _isDragPageTurnEnabled,
-            _isPageTurnInverted,
-            _readerColorTone,
-            _readerPageAnimation,
-            _isTwoPageMode,
-            _openComicsAtLastPosition,
-            _openComicsInFullscreen,
-            _isReaderPreviewPaneEnabled,
-            _openPreviousChapterAtLastPage));
+        try
+        {
+            await _preferencesStore.SaveAsync(new UserPreferences(
+                _isDarkTheme,
+                _readingDirection,
+                _readerWheelAction,
+                _isEdgePageTurnEnabled,
+                _isDragPageTurnEnabled,
+                _isPageTurnInverted,
+                _readerColorTone,
+                _readerPageAnimation,
+                _isTwoPageMode,
+                _openComicsAtLastPosition,
+                _openComicsInFullscreen,
+                _isReaderPreviewPaneEnabled,
+                _openPreviousChapterAtLastPage));
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or NotSupportedException
+            or System.Text.Json.JsonException)
+        {
+            RecordActivity(ActivityKind.Warning, "Preferences were not saved", exception.Message);
+        }
     }
 
     // --- Bookmarks ---

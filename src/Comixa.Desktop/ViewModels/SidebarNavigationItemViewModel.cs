@@ -1,3 +1,5 @@
+using Avalonia.Media;
+
 namespace Comixa.Desktop.ViewModels;
 
 public sealed class SidebarNavigationItemViewModel : ViewModelBase
@@ -5,15 +7,18 @@ public sealed class SidebarNavigationItemViewModel : ViewModelBase
     private bool _isActive;
     private string _detail;
 
-    public SidebarNavigationItemViewModel(string label, string detail, RelayCommand command)
+    public SidebarNavigationItemViewModel(string label, string detail, string iconData, RelayCommand command)
     {
         Label = label;
         _detail = detail;
+        Icon = StreamGeometry.Parse(iconData);
         Command = command;
     }
 
     public string Label { get; }
+    public Geometry Icon { get; }
     public RelayCommand Command { get; }
+    public string ToolTip => HasDetail ? $"{Label} - {Detail}" : Label;
 
     public string Detail
     {
@@ -24,6 +29,7 @@ public sealed class SidebarNavigationItemViewModel : ViewModelBase
             _detail = value;
             RaisePropertyChanged();
             RaisePropertyChanged(nameof(HasDetail));
+            RaisePropertyChanged(nameof(ToolTip));
         }
     }
 

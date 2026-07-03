@@ -100,26 +100,62 @@
       </Setter>
     </Style>
 
-    <Style Selector="Button.primaryButton">
-      <Setter Property="Background" Value="{DynamicResource ComixaPrimaryBrush}" />
-      <Setter Property="Foreground" Value="#001B12" />
-      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    <Style Selector="Button.iconButton">
+      <Setter Property="Background" Value="{DynamicResource ComixaSurfaceVariantBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ComixaOnSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaOutlineBrush}" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="Padding" Value="13,8" />
-      <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="8" />
+      <Setter Property="MinWidth" Value="36" />
+      <Setter Property="Width" Value="36" />
+      <Setter Property="Height" Value="36" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
-    <Style Selector="Button.primaryButton:pointerover">
-      <Setter Property="Background" Value="#38E99C" />
-      <Setter Property="Foreground" Value="#001B12" />
-      <Setter Property="BorderBrush" Value="#9AF7CE" />
+    <Style Selector="Button.iconButton:pointerover">
+      <Setter Property="Background" Value="#263443" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
     </Style>
 
-    <Style Selector="Button.primaryButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="#38E99C" />
-      <Setter Property="Foreground" Value="#001B12" />
-      <Setter Property="BorderBrush" Value="#9AF7CE" />
+    <Style Selector="Button.iconButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#263443" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.iconButton:pressed">
+      <Setter Property="Background" Value="#304256" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.iconDangerButton">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource ComixaDangerBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="8" />
+      <Setter Property="MinWidth" Value="34" />
+      <Setter Property="Width" Value="34" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.iconDangerButton:pointerover">
+      <Setter Property="Background" Value="#3A1E29" />
+      <Setter Property="Foreground" Value="#FFD7E1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaDangerBrush}" />
+    </Style>
+
+    <Style Selector="Button.iconDangerButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#3A1E29" />
+      <Setter Property="Foreground" Value="#FFD7E1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaDangerBrush}" />
     </Style>
 
     <Style Selector="Button.chromeButton:pointerover">
@@ -159,27 +195,6 @@
           <BrushTransition Property="Foreground" Duration="0:0:0.12" />
         </Transitions>
       </Setter>
-    </Style>
-
-    <Style Selector="Button.dangerButton">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Foreground" Value="{DynamicResource ComixaDangerBrush}" />
-      <Setter Property="BorderBrush" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Padding" Value="8,6" />
-    </Style>
-
-    <Style Selector="Button.dangerButton:pointerover">
-      <Setter Property="Background" Value="#3A1E29" />
-      <Setter Property="Foreground" Value="#FFD7E1" />
-      <Setter Property="BorderBrush" Value="{DynamicResource ComixaDangerBrush}" />
-    </Style>
-
-    <Style Selector="Button.dangerButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="#3A1E29" />
-      <Setter Property="Foreground" Value="#FFD7E1" />
-      <Setter Property="BorderBrush" Value="{DynamicResource ComixaDangerBrush}" />
     </Style>
 
     <Style Selector="ToggleButton.filterChip">
