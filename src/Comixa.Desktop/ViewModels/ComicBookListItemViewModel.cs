@@ -45,11 +45,11 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
         ? 0.0
         : (double)(_progress.PageNumber + 1) / ComicBook.PageCount;
 
-    public bool HasProgress => _progress is not null && _progress.PageNumber > 0;
+    public bool HasProgress => _progress is not null;
 
     public bool IsRead => _progress is not null && PageCount > 0 && _progress.PageNumber >= PageCount - 1;
 
-    public bool IsStarted => _progress is not null && _progress.PageNumber > 0 && !IsRead;
+    public bool IsStarted => _progress is not null && !IsRead;
 
     public bool IsUnread => !IsStarted && !IsRead;
 

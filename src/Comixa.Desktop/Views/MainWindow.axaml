@@ -52,10 +52,17 @@
                 Command="{Binding ToggleThemeCommand}"
                 ToolTip.Tip="{Binding ThemeToggleLabel}"
                 VerticalAlignment="Center"
+                Width="72"
+                MinWidth="72"
                 Margin="0,0,8,0">
-          <PathIcon Data="M12,2A10,10 0,1 0,22 12A7,7 0,1 1,12 2Z"
-                    Width="18"
-                    Height="18" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <PathIcon Data="{Binding ThemeIcon}"
+                      Width="15"
+                      Height="15" />
+            <TextBlock Text="{Binding ThemeToggleLabel}"
+                       FontSize="12"
+                       VerticalAlignment="Center" />
+          </StackPanel>
         </Button>
         <Button Grid.Column="4"
                 Classes="iconButton"
@@ -282,7 +289,7 @@
                   <Border Height="1" Background="{DynamicResource ComixaOutlineBrush}" />
 
                   <StackPanel Spacing="10">
-                    <TextBlock Text="Activity"
+                    <TextBlock Text="Recent comics"
                                FontSize="15"
                                FontWeight="SemiBold"
                                Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
