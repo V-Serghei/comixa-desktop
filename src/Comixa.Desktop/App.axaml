@@ -40,26 +40,6 @@
   <Application.Styles>
     <FluentTheme />
 
-    <Style Selector="Button">
-      <Setter Property="Transitions">
-        <Transitions>
-          <BrushTransition Property="Background" Duration="0:0:0.12" />
-          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
-          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
-        </Transitions>
-      </Setter>
-    </Style>
-
-    <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Transitions">
-        <Transitions>
-          <BrushTransition Property="Background" Duration="0:0:0.12" />
-          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
-          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
-        </Transitions>
-      </Setter>
-    </Style>
-
     <Style Selector="Button:pointerover">
       <Setter Property="Background" Value="#24303C" />
       <Setter Property="Foreground" Value="#FFFFFF" />
@@ -91,13 +71,6 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Padding" Value="12,7" />
       <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Transitions">
-        <Transitions>
-          <BrushTransition Property="Background" Duration="0:0:0.14" />
-          <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
-          <BrushTransition Property="Foreground" Duration="0:0:0.14" />
-        </Transitions>
-      </Setter>
     </Style>
 
     <Style Selector="Button.iconButton">
@@ -158,6 +131,29 @@
       <Setter Property="BorderBrush" Value="{DynamicResource ComixaDangerBrush}" />
     </Style>
 
+    <Style Selector="Button.libraryItemButton">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="4" />
+    </Style>
+
+    <Style Selector="Button.libraryItemButton:pointerover">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource ComixaOnSurfaceBrush}" />
+    </Style>
+
+    <Style Selector="Button.libraryItemButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource ComixaOnSurfaceBrush}" />
+    </Style>
+
+    <Style Selector="Button.libraryItemButton:pointerover Border.cardFrame">
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
     <Style Selector="Button.chromeButton:pointerover">
       <Setter Property="Background" Value="#263443" />
       <Setter Property="Foreground" Value="#FFFFFF" />
@@ -188,13 +184,6 @@
       <Setter Property="BorderBrush" Value="Transparent" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="Transitions">
-        <Transitions>
-          <BrushTransition Property="Background" Duration="0:0:0.12" />
-          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
-          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
-        </Transitions>
-      </Setter>
     </Style>
 
     <Style Selector="ToggleButton.filterChip">
@@ -291,13 +280,6 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="6" />
       <Setter Property="Padding" Value="8,5" />
-      <Setter Property="Transitions">
-        <Transitions>
-          <BrushTransition Property="Background" Duration="0:0:0.12" />
-          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
-          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
-        </Transitions>
-      </Setter>
     </Style>
 
     <Style Selector="Button.readerButton:pointerover">
@@ -331,13 +313,6 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="6" />
       <Setter Property="Padding" Value="8,5" />
-      <Setter Property="Transitions">
-        <Transitions>
-          <BrushTransition Property="Background" Duration="0:0:0.12" />
-          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
-          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
-        </Transitions>
-      </Setter>
     </Style>
 
     <Style Selector="Button.readerPrimaryButton:pointerover">

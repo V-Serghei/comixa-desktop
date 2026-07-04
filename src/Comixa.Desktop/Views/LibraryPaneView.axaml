@@ -9,9 +9,7 @@
     <DataTemplate x:DataType="vm:SingleLibraryItemViewModel">
       <Button Command="{Binding OpenCommand}"
               DoubleTapped="OnLibraryItemDoubleTapped"
-              Background="Transparent"
-              BorderThickness="0"
-              Padding="4"
+              Classes="libraryItemButton"
               MinWidth="122"
               HorizontalAlignment="Center"
               Cursor="Hand">
@@ -43,6 +41,7 @@
 
         <Panel>
           <Border Width="112"
+                  Classes="cardFrame"
                   Background="{DynamicResource ComixaSurfaceBrush}"
                   BorderBrush="{DynamicResource ComixaOutlineBrush}"
                   BorderThickness="1"
@@ -121,13 +120,12 @@
 
     <DataTemplate x:DataType="vm:SeriesLibraryItemViewModel">
       <Button Command="{Binding OpenCommand}"
-              Background="Transparent"
-              BorderThickness="0"
-              Padding="4"
+              Classes="libraryItemButton"
               MinWidth="122"
               HorizontalAlignment="Center"
               Cursor="Hand">
         <Border Width="112"
+                Classes="cardFrame"
                 Background="{DynamicResource ComixaSurfaceBrush}"
                 BorderBrush="{DynamicResource ComixaOutlineBrush}"
                 BorderThickness="1"
