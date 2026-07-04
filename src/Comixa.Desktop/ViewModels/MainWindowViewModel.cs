@@ -207,6 +207,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         ToggleZipFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Zip));
         TogglePdfFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Pdf));
         ToggleCbrFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Cbr));
+        ToggleSevenZipFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.SevenZip));
         SetReadingDirectionCommand = new RelayCommand<string>(SetReadingDirection);
         ToggleThemeCommand = new RelayCommand(ToggleTheme);
         ClearSearchCommand = new RelayCommand(() => SearchQuery = "");
@@ -291,6 +292,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public RelayCommand ToggleZipFilterCommand { get; }
     public RelayCommand TogglePdfFilterCommand { get; }
     public RelayCommand ToggleCbrFilterCommand { get; }
+    public RelayCommand ToggleSevenZipFilterCommand { get; }
     public RelayCommand ClearSearchCommand { get; }
     public RelayCommand ToggleFolderDisplayModeCommand { get; }
     public RelayCommand ToggleShelfDisplayModeCommand { get; }
@@ -434,6 +436,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public bool IsZipFilterActive => _formatFilter == ComicFormat.Zip;
     public bool IsPdfFilterActive => _formatFilter == ComicFormat.Pdf;
     public bool IsCbrFilterActive => _formatFilter == ComicFormat.Cbr;
+    public bool IsSevenZipFilterActive => _formatFilter == ComicFormat.SevenZip;
     public bool IsSortTitleAsc => _sortOrder == SortOrder.TitleAsc;
     public bool IsSortTitleDesc => _sortOrder == SortOrder.TitleDesc;
     public bool IsSortRecentlyAdded => _sortOrder == SortOrder.RecentlyAdded;
@@ -949,7 +952,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         {
             await LoadLibraryFromDatabaseAsync(_allBooks.Count > 0
                 ? $"{_allBooks.Count} saved comics shown. Scan found no readable files."
-                : "No CBZ, ZIP, PDF, CBR or image folders found.");
+                : "No CBZ, ZIP, PDF, CBR, RAR, 7Z or image folders found.");
             return;
         }
 
@@ -1006,7 +1009,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _isLoadingLibrary = false;
         StatusMessage = statusMessage ?? (_allBooks.Count > 0
             ? $"{_allBooks.Count} comic{(_allBooks.Count == 1 ? "" : "s")} in library"
-            : "No CBZ, ZIP, PDF, CBR or image folders found.");
+            : "No CBZ, ZIP, PDF, CBR, RAR, 7Z or image folders found.");
 
         RaisePropertyChanged(nameof(IsLibraryEmpty));
         RaisePropertyChanged(nameof(LibraryViewTitle));
@@ -2645,7 +2648,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     private static bool IsUnsupportedReaderFormat(ComicFormat format)
     {
-        return format is ComicFormat.SevenZip or ComicFormat.Epub;
+        return format is ComicFormat.Epub;
     }
 
     private static string GetUnreadableBookMessage(ComicBook book)
@@ -2655,8 +2658,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             return $"{book.Format} detected, but this format is not supported yet.";
         }
 
-        return book.Format == ComicFormat.Zip
-            ? "This ZIP does not contain readable image pages."
+        return book.Format is ComicFormat.Zip or ComicFormat.SevenZip
+            ? $"This {book.Format} archive does not contain readable image pages."
             : "No readable pages found.";
     }
 
@@ -2926,6 +2929,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         RaisePropertyChanged(nameof(IsZipFilterActive));
         RaisePropertyChanged(nameof(IsPdfFilterActive));
         RaisePropertyChanged(nameof(IsCbrFilterActive));
+        RaisePropertyChanged(nameof(IsSevenZipFilterActive));
     }
 
     private void NotifyAllDirectionProps()

@@ -127,7 +127,8 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
             return comicBook.Format switch
             {
                 ComicFormat.Cbz or ComicFormat.Zip => await TryCreateArchiveThumbnailAsync(comicBook.FilePath, cancellationToken),
-                ComicFormat.Cbr or ComicFormat.Rar => await TryCreateRarThumbnailAsync(comicBook.FilePath, cancellationToken),
+                ComicFormat.Cbr or ComicFormat.Rar => await TryCreateCompressedArchiveThumbnailAsync(comicBook.FilePath, ".rar", cancellationToken),
+                ComicFormat.SevenZip => await TryCreateCompressedArchiveThumbnailAsync(comicBook.FilePath, ".7z", cancellationToken),
                 ComicFormat.ImageFolder => await TryCreateImageFolderThumbnailAsync(comicBook.FilePath, cancellationToken),
                 _ => null
             };
@@ -147,7 +148,13 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
 
     private static async Task<Bitmap?> TryCreateArchiveThumbnailAsync(string archivePath, CancellationToken cancellationToken)
     {
-        using var archive = ZipFile.OpenRead(archivePath);
+        using var archiveStream = ComicArchiveStreamFactory.TryOpenArchiveStream(archivePath);
+        if (archiveStream is null)
+        {
+            return null;
+        }
+
+        using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
         var entry = archive.Entries
             .Where(item => !string.IsNullOrWhiteSpace(item.Name) && LocalComicLibraryScanner.IsImageFile(item.FullName))
             .OrderBy(item => item.FullName, StringComparer.OrdinalIgnoreCase)
@@ -162,9 +169,14 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
         return await CreateMagickThumbnailAsync(entryStream, cancellationToken);
     }
 
-    private static async Task<Bitmap?> TryCreateRarThumbnailAsync(string archivePath, CancellationToken cancellationToken)
+    private static async Task<Bitmap?> TryCreateCompressedArchiveThumbnailAsync(
+        string archivePath,
+        string extensionHint,
+        CancellationToken cancellationToken)
     {
-        using var archiveStream = ComicArchiveStreamFactory.TryOpenRarArchiveStream(archivePath);
+        using var archiveStream = extensionHint.Equals(".rar", StringComparison.OrdinalIgnoreCase)
+            ? ComicArchiveStreamFactory.TryOpenRarArchiveStream(archivePath)
+            : ComicArchiveStreamFactory.TryOpenArchiveStream(archivePath);
         if (archiveStream is null)
         {
             return null;
@@ -173,7 +185,7 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
         using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
         {
             LeaveStreamOpen = true,
-            ExtensionHint = ".rar"
+            ExtensionHint = extensionHint
         });
 
         var entry = archive.Entries

@@ -158,6 +158,7 @@ public sealed class LocalPagePreviewLoader :
                 {
                     ComicFormat.Cbz or ComicFormat.Zip => GetArchiveImageEntryNames(comicBook.FilePath).Length,
                     ComicFormat.Cbr or ComicFormat.Rar => GetRarImageEntryNames(comicBook.FilePath).Length,
+                    ComicFormat.SevenZip => GetCompressedArchiveImageEntryNames(comicBook.FilePath, ".7z").Length,
                     ComicFormat.ImageFolder => GetFolderImagePaths(comicBook.FilePath).Length,
                     ComicFormat.Pdf => GetPdfPageCount(comicBook.FilePath),
                     _ => 0
@@ -273,7 +274,8 @@ public sealed class LocalPagePreviewLoader :
                 var page = comicBook.Format switch
                 {
                     ComicFormat.Cbz or ComicFormat.Zip => await LoadArchivePageAsync(comicBook.FilePath, pageIndex, cancellationToken),
-                    ComicFormat.Cbr or ComicFormat.Rar => await LoadRarPageAsync(comicBook.FilePath, pageIndex, cancellationToken),
+                    ComicFormat.Cbr or ComicFormat.Rar => await LoadCompressedArchivePageAsync(comicBook.FilePath, pageIndex, ".rar", cancellationToken),
+                    ComicFormat.SevenZip => await LoadCompressedArchivePageAsync(comicBook.FilePath, pageIndex, ".7z", cancellationToken),
                     ComicFormat.ImageFolder => await LoadImageFolderPageAsync(comicBook.FilePath, pageIndex, cancellationToken),
                     ComicFormat.Pdf => await LoadPdfPageAsync(comicBook.FilePath, pageIndex, cancellationToken),
                     _ => null
@@ -448,7 +450,7 @@ public sealed class LocalPagePreviewLoader :
             return null;
         }
 
-        using var archiveStream = ComicArchiveStreamFactory.TryOpenRarArchiveStream(archivePath);
+        using var archiveStream = ComicArchiveStreamFactory.TryOpenArchiveStream(archivePath);
         if (archiveStream is null)
         {
             return null;
@@ -465,16 +467,22 @@ public sealed class LocalPagePreviewLoader :
         return await LoadBitmapAsync(entryStream, cancellationToken);
     }
 
-    private static async Task<Bitmap?> LoadRarPageAsync(string archivePath, int pageIndex, CancellationToken cancellationToken)
+    private static async Task<Bitmap?> LoadCompressedArchivePageAsync(
+        string archivePath,
+        int pageIndex,
+        string extensionHint,
+        CancellationToken cancellationToken)
     {
-        var entryName = GetRarImageEntryNames(archivePath).ElementAtOrDefault(pageIndex);
+        var entryName = GetCompressedArchiveImageEntryNames(archivePath, extensionHint).ElementAtOrDefault(pageIndex);
 
         if (entryName is null)
         {
             return null;
         }
 
-        using var archiveStream = ComicArchiveStreamFactory.TryOpenArchiveStream(archivePath);
+        using var archiveStream = extensionHint.Equals(".rar", StringComparison.OrdinalIgnoreCase)
+            ? ComicArchiveStreamFactory.TryOpenRarArchiveStream(archivePath)
+            : ComicArchiveStreamFactory.TryOpenArchiveStream(archivePath);
         if (archiveStream is null)
         {
             return null;
@@ -483,7 +491,7 @@ public sealed class LocalPagePreviewLoader :
         using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
         {
             LeaveStreamOpen = true,
-            ExtensionHint = ".rar"
+            ExtensionHint = extensionHint
         });
 
         var entry = archive.Entries.FirstOrDefault(item =>
@@ -580,11 +588,18 @@ public sealed class LocalPagePreviewLoader :
 
     private static string[] GetRarImageEntryNames(string archivePath)
     {
+        return GetCompressedArchiveImageEntryNames(archivePath, ".rar");
+    }
+
+    private static string[] GetCompressedArchiveImageEntryNames(string archivePath, string extensionHint)
+    {
         return ArchiveImageEntryNames.GetOrAdd(archivePath, path =>
         {
             try
             {
-                using var archiveStream = ComicArchiveStreamFactory.TryOpenRarArchiveStream(path);
+                using var archiveStream = extensionHint.Equals(".rar", StringComparison.OrdinalIgnoreCase)
+                    ? ComicArchiveStreamFactory.TryOpenRarArchiveStream(path)
+                    : ComicArchiveStreamFactory.TryOpenArchiveStream(path);
                 if (archiveStream is null)
                 {
                     return [];
@@ -593,7 +608,7 @@ public sealed class LocalPagePreviewLoader :
                 using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
                 {
                     LeaveStreamOpen = true,
-                    ExtensionHint = ".rar"
+                    ExtensionHint = extensionHint
                 });
 
                 return archive.Entries
@@ -608,7 +623,8 @@ public sealed class LocalPagePreviewLoader :
                 or InvalidFormatException
                 or ArgumentException
                 or InvalidOperationException
-                or NotSupportedException)
+                or NotSupportedException
+                or InvalidDataException)
             {
                 return [];
             }
@@ -717,11 +733,12 @@ public sealed class LocalPagePreviewLoader :
         {
             return new Bitmap(new MemoryStream(bytes));
         }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException)
         {
             try
             {
                 using var image = new MagickImage(bytes);
+                image.AutoOrient();
                 image.Format = MagickFormat.Png;
                 return new Bitmap(new MemoryStream(image.ToByteArray()));
             }
