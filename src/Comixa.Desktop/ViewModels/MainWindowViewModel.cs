@@ -1365,6 +1365,8 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     {
         if (book is null) return;
 
+        _coverLoadCts?.Cancel();
+
         if (_isSettingsPanelVisible)
         {
             _isSettingsPanelVisible = false;
@@ -2533,6 +2535,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private async Task LoadCurrentPageAsync()
     {
         _currentPageCts?.Cancel();
+        CancelBookPreload();
         _currentPageCts = new CancellationTokenSource();
         var cts = _currentPageCts;
         var loadVersion = ++_currentPageLoadVersion;

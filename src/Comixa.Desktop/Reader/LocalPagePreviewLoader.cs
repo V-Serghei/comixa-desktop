@@ -23,8 +23,9 @@ public sealed class LocalPagePreviewLoader :
 {
     private const int MaxCachedPages = 256;
     private const int MaxRenderedPages = 384;
-    private const int HotPreloadForwardPages = 16;
-    private const int HotPreloadBackwardPages = 4;
+    private const int HotPreloadForwardPages = 24;
+    private const int HotPreloadBackwardPages = 6;
+    private const int BackgroundPreloadPageLimit = 160;
     private const int HotPreloadParallelism = 4;
     private const long MaxCachedPageBytes = 768L * 1024L * 1024L;
     private const long MaxCachedRenderedPageBytes = 512L * 1024L * 1024L;
@@ -189,14 +190,25 @@ public sealed class LocalPagePreviewLoader :
             var hotPages = BuildHotPreloadOrder(comicBook.PageCount, startPageIndex).ToArray();
             await PreloadPageBatchAsync(comicBook, hotPages, cancellationToken);
 
-            if (comicBook.Format is ComicFormat.Cbz or ComicFormat.Zip &&
-                !ComicArchiveLocator.TrySplitNestedArchivePath(comicBook.FilePath, out _, out _))
+            if (comicBook.Format is ComicFormat.Cbz or ComicFormat.Zip)
             {
                 await PreloadArchivePagesAsync(comicBook, startPageIndex, cancellationToken);
                 return;
             }
 
-            foreach (var pageIndex in BuildPreloadOrder(comicBook.PageCount, startPageIndex))
+            if (comicBook.Format is ComicFormat.Cbr or ComicFormat.Rar)
+            {
+                await PreloadCompressedArchivePagesAsync(comicBook, startPageIndex, ".rar", cancellationToken);
+                return;
+            }
+
+            if (comicBook.Format == ComicFormat.SevenZip)
+            {
+                await PreloadCompressedArchivePagesAsync(comicBook, startPageIndex, ".7z", cancellationToken);
+                return;
+            }
+
+            foreach (var pageIndex in BuildBackgroundPreloadOrder(comicBook.PageCount, startPageIndex))
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 await LoadPageAsync(comicBook, pageIndex, cancellationToken);
@@ -382,9 +394,15 @@ public sealed class LocalPagePreviewLoader :
             {
                 var entryNames = GetArchiveImageEntryNames(comicBook.FilePath);
                 var cacheKeyPrefix = GetPageCacheKeyPrefix(comicBook);
-                using var archive = ZipFile.OpenRead(comicBook.FilePath);
+                using var archiveStream = ComicArchiveStreamFactory.TryOpenArchiveStream(comicBook.FilePath);
+                if (archiveStream is null)
+                {
+                    return;
+                }
 
-                foreach (var pageIndex in BuildPreloadOrder(comicBook.PageCount, startPageIndex))
+                using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
+
+                foreach (var pageIndex in BuildBackgroundPreloadOrder(comicBook.PageCount, startPageIndex))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
@@ -435,7 +453,101 @@ public sealed class LocalPagePreviewLoader :
                     }
                 }
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidDataException)
+            catch (Exception exception) when (exception is IOException
+                or UnauthorizedAccessException
+                or ArgumentException
+                or InvalidDataException
+                or InvalidOperationException)
+            {
+            }
+        }, cancellationToken);
+    }
+
+    private async Task PreloadCompressedArchivePagesAsync(
+        ComicBook comicBook,
+        int startPageIndex,
+        string extensionHint,
+        CancellationToken cancellationToken)
+    {
+        await Task.Run(async () =>
+        {
+            try
+            {
+                var entryNames = GetCompressedArchiveImageEntryNames(comicBook.FilePath, extensionHint);
+                var cacheKeyPrefix = GetPageCacheKeyPrefix(comicBook);
+                using var archiveStream = extensionHint.Equals(".rar", StringComparison.OrdinalIgnoreCase)
+                    ? ComicArchiveStreamFactory.TryOpenRarArchiveStream(comicBook.FilePath)
+                    : ComicArchiveStreamFactory.TryOpenArchiveStream(comicBook.FilePath);
+                if (archiveStream is null)
+                {
+                    return;
+                }
+
+                using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
+                {
+                    LeaveStreamOpen = true,
+                    ExtensionHint = extensionHint
+                });
+
+                var entries = archive.Entries
+                    .Where(entry => !entry.IsDirectory && !string.IsNullOrWhiteSpace(entry.Key))
+                    .GroupBy(entry => entry.Key!, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+                foreach (var pageIndex in BuildBackgroundPreloadOrder(comicBook.PageCount, startPageIndex))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var cacheKey = GetPageCacheKey(cacheKeyPrefix, pageIndex);
+                    if (_pageCache.TryGet(cacheKey, out _))
+                    {
+                        continue;
+                    }
+
+                    var entryName = entryNames.ElementAtOrDefault(pageIndex);
+                    if (entryName is null || !entries.TryGetValue(entryName, out var entry))
+                    {
+                        continue;
+                    }
+
+                    await _decodeGate.WaitAsync(cancellationToken);
+                    try
+                    {
+                        if (_pageCache.TryGet(cacheKey, out _))
+                        {
+                            continue;
+                        }
+
+                        using var pageStream = new MemoryStream();
+                        entry.WriteTo(pageStream);
+                        pageStream.Position = 0;
+                        var page = await LoadBitmapAsync(pageStream, cancellationToken);
+                        if (page is null)
+                        {
+                            continue;
+                        }
+
+                        if (_isDisposed)
+                        {
+                            page.Dispose();
+                            return;
+                        }
+
+                        _pageCache.AddOrGet(cacheKey, page);
+                    }
+                    finally
+                    {
+                        _decodeGate.Release();
+                    }
+                }
+            }
+            catch (Exception exception) when (exception is IOException
+                or UnauthorizedAccessException
+                or ArgumentException
+                or InvalidDataException
+                or InvalidFormatException
+                or InvalidOperationException
+                or NotSupportedException)
             {
             }
         }, cancellationToken);
@@ -654,6 +766,11 @@ public sealed class LocalPagePreviewLoader :
         {
             yield return index;
         }
+    }
+
+    private static IEnumerable<int> BuildBackgroundPreloadOrder(int pageCount, int startPageIndex)
+    {
+        return BuildPreloadOrder(pageCount, startPageIndex).Take(BackgroundPreloadPageLimit);
     }
 
     private static IEnumerable<int> BuildHotPreloadOrder(int pageCount, int startPageIndex)
