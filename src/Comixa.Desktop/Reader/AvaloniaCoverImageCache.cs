@@ -16,7 +16,6 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
 {
     private const int CoverMaxWidth = 220;
     private const int CoverMaxHeight = 330;
-    private static readonly byte[] RarSignature = [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07];
 
     private readonly IPagePreviewLoader _pagePreviewLoader;
     private readonly string _cacheDirectory;
@@ -128,7 +127,8 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
             return comicBook.Format switch
             {
                 ComicFormat.Cbz or ComicFormat.Zip => await TryCreateArchiveThumbnailAsync(comicBook.FilePath, cancellationToken),
-                ComicFormat.Cbr or ComicFormat.Rar => await TryCreateRarThumbnailAsync(comicBook.FilePath, cancellationToken),
+                ComicFormat.Cbr or ComicFormat.Rar => await TryCreateCompressedArchiveThumbnailAsync(comicBook.FilePath, ".rar", cancellationToken),
+                ComicFormat.SevenZip => await TryCreateCompressedArchiveThumbnailAsync(comicBook.FilePath, ".7z", cancellationToken),
                 ComicFormat.ImageFolder => await TryCreateImageFolderThumbnailAsync(comicBook.FilePath, cancellationToken),
                 _ => null
             };
@@ -148,7 +148,13 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
 
     private static async Task<Bitmap?> TryCreateArchiveThumbnailAsync(string archivePath, CancellationToken cancellationToken)
     {
-        using var archive = ZipFile.OpenRead(archivePath);
+        using var archiveStream = ComicArchiveStreamFactory.TryOpenArchiveStream(archivePath);
+        if (archiveStream is null)
+        {
+            return null;
+        }
+
+        using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
         var entry = archive.Entries
             .Where(item => !string.IsNullOrWhiteSpace(item.Name) && LocalComicLibraryScanner.IsImageFile(item.FullName))
             .OrderBy(item => item.FullName, StringComparer.OrdinalIgnoreCase)
@@ -163,9 +169,14 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
         return await CreateMagickThumbnailAsync(entryStream, cancellationToken);
     }
 
-    private static async Task<Bitmap?> TryCreateRarThumbnailAsync(string archivePath, CancellationToken cancellationToken)
+    private static async Task<Bitmap?> TryCreateCompressedArchiveThumbnailAsync(
+        string archivePath,
+        string extensionHint,
+        CancellationToken cancellationToken)
     {
-        using var archiveStream = TryOpenRarArchiveStream(archivePath);
+        using var archiveStream = extensionHint.Equals(".rar", StringComparison.OrdinalIgnoreCase)
+            ? ComicArchiveStreamFactory.TryOpenRarArchiveStream(archivePath)
+            : ComicArchiveStreamFactory.TryOpenArchiveStream(archivePath);
         if (archiveStream is null)
         {
             return null;
@@ -174,7 +185,7 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
         using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
         {
             LeaveStreamOpen = true,
-            ExtensionHint = ".rar"
+            ExtensionHint = extensionHint
         });
 
         var entry = archive.Entries
@@ -222,91 +233,6 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
         image.Thumbnail(CoverMaxWidth, CoverMaxHeight);
         image.Format = MagickFormat.Png;
         return new Bitmap(new MemoryStream(image.ToByteArray()));
-    }
-
-    private static Stream? TryOpenArchiveStream(string archivePath)
-    {
-        try
-        {
-            if (!ComicArchiveLocator.TrySplitNestedArchivePath(archivePath, out var outerArchivePath, out var nestedEntryName))
-            {
-                return File.OpenRead(archivePath);
-            }
-
-            using var outerArchive = ZipFile.OpenRead(outerArchivePath);
-            var nestedEntry = outerArchive.GetEntry(nestedEntryName);
-            if (nestedEntry is null)
-            {
-                return null;
-            }
-
-            var memory = new MemoryStream((int)Math.Min(nestedEntry.Length, int.MaxValue));
-            using (var nestedStream = nestedEntry.Open())
-            {
-                nestedStream.CopyTo(memory);
-            }
-
-            memory.Position = 0;
-            return memory;
-        }
-        catch (Exception exception) when (exception is IOException
-            or UnauthorizedAccessException
-            or InvalidDataException
-            or ArgumentException)
-        {
-            return null;
-        }
-    }
-
-    private static Stream? TryOpenRarArchiveStream(string archivePath)
-    {
-        var stream = TryOpenArchiveStream(archivePath);
-        if (stream is null)
-        {
-            return null;
-        }
-
-        if (TryMoveToRarSignature(stream))
-        {
-            return stream;
-        }
-
-        stream.Dispose();
-        return null;
-    }
-
-    private static bool TryMoveToRarSignature(Stream stream)
-    {
-        if (!stream.CanSeek)
-        {
-            return true;
-        }
-
-        var start = stream.Position;
-        Span<byte> header = stackalloc byte[RarSignature.Length];
-        var read = stream.Read(header);
-        stream.Position = start;
-        if (read == RarSignature.Length && header.SequenceEqual(RarSignature))
-        {
-            return true;
-        }
-
-        var bufferLength = (int)Math.Min(stream.Length - start, 1024L * 1024L);
-        var buffer = new byte[bufferLength];
-        read = stream.Read(buffer, 0, buffer.Length);
-        for (var index = 0; index <= read - RarSignature.Length; index++)
-        {
-            if (!buffer.AsSpan(index, RarSignature.Length).SequenceEqual(RarSignature))
-            {
-                continue;
-            }
-
-            stream.Position = start + index;
-            return true;
-        }
-
-        stream.Position = start;
-        return false;
     }
 
     private async Task<Bitmap?> TryCreateThumbnailFromPageLoaderAsync(

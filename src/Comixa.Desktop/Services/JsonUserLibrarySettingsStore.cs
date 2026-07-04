@@ -24,9 +24,19 @@ public sealed class JsonUserLibrarySettingsStore : IUserLibrarySettingsStore
             return new UserLibrarySettings([]);
         }
 
-        await using var stream = File.OpenRead(_settingsPath);
-        return await JsonSerializer.DeserializeAsync<UserLibrarySettings>(stream, SerializerOptions, cancellationToken)
-            ?? new UserLibrarySettings([]);
+        try
+        {
+            await using var stream = File.OpenRead(_settingsPath);
+            return await JsonSerializer.DeserializeAsync<UserLibrarySettings>(stream, SerializerOptions, cancellationToken)
+                ?? new UserLibrarySettings([]);
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or JsonException
+            or NotSupportedException)
+        {
+            return new UserLibrarySettings([]);
+        }
     }
 
     public async Task SaveAsync(UserLibrarySettings settings, CancellationToken cancellationToken = default)
