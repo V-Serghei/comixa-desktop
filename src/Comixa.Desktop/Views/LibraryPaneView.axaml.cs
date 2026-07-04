@@ -11,11 +11,11 @@ public sealed partial class LibraryPaneView : UserControl
     public LibraryPaneView()
     {
         InitializeComponent();
-        LibraryItemsList.SizeChanged += OnLibraryItemsListSizeChanged;
+        LibraryContent.SizeChanged += OnLibraryContentSizeChanged;
         DataContextChanged += (_, _) => UpdateLibraryColumnCount();
     }
 
-    private void OnLibraryItemsListSizeChanged(object? sender, SizeChangedEventArgs e)
+    private void OnLibraryContentSizeChanged(object? sender, SizeChangedEventArgs e)
     {
         UpdateLibraryColumnCount();
     }
@@ -28,37 +28,7 @@ public sealed partial class LibraryPaneView : UserControl
             if (target.DataContext is SingleLibraryItemViewModel item)
             {
                 item.RefreshShelfItems();
-                UpdateShelfMenu(menu, item);
             }
-        }
-    }
-
-    private static void UpdateShelfMenu(ContextMenu menu, SingleLibraryItemViewModel item)
-    {
-        var shelfMenu = menu.Items
-            .OfType<MenuItem>()
-            .FirstOrDefault(menuItem => string.Equals(menuItem.Header?.ToString(), "Add to shelf...", StringComparison.Ordinal));
-        var emptyShelfMenu = menu.Items
-            .OfType<MenuItem>()
-            .FirstOrDefault(menuItem => string.Equals(menuItem.Header?.ToString(), "No shelves yet", StringComparison.Ordinal));
-
-        if (shelfMenu is not null)
-        {
-            shelfMenu.ItemsSource = item.ShelfItems
-                .Select(shelfItem => new MenuItem
-                {
-                    Header = shelfItem.MenuText,
-                    Command = shelfItem.ToggleCommand
-                })
-                .ToArray();
-
-            shelfMenu.IsVisible = item.HasShelfItems;
-            shelfMenu.IsEnabled = item.HasShelfItems;
-        }
-
-        if (emptyShelfMenu is not null)
-        {
-            emptyShelfMenu.IsVisible = !item.HasShelfItems;
         }
     }
 
@@ -66,7 +36,7 @@ public sealed partial class LibraryPaneView : UserControl
     {
         if (DataContext is MainWindowViewModel viewModel)
         {
-            viewModel.SetLibraryViewportWidth(LibraryItemsList.Bounds.Width);
+            viewModel.SetLibraryViewportWidth(LibraryContent.Bounds.Width);
         }
     }
 

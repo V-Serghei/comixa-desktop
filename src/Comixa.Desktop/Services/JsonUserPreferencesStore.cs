@@ -31,8 +31,8 @@ public sealed class JsonUserPreferencesStore : IUserPreferencesStore
                 return UserPreferences.Default;
 
             return new UserPreferences(
-                dto.IsDarkTheme,
-                Enum.TryParse<ReadingDirection>(dto.ReadingDirection, out var dir) ? dir : ReadingDirection.LeftToRight,
+                dto.IsDarkTheme ?? UserPreferences.Default.IsDarkTheme,
+                Enum.TryParse<ReadingDirection>(dto.ReadingDirection, out var dir) ? dir : UserPreferences.Default.ReadingDirection,
                 Enum.TryParse<ReaderWheelAction>(dto.ReaderWheelAction, out var wheelAction) ? wheelAction : UserPreferences.Default.ReaderWheelAction,
                 dto.IsEdgePageTurnEnabled ?? UserPreferences.Default.IsEdgePageTurnEnabled,
                 dto.IsDragPageTurnEnabled ?? UserPreferences.Default.IsDragPageTurnEnabled,
@@ -77,8 +77,8 @@ public sealed class JsonUserPreferencesStore : IUserPreferencesStore
     }
 
     private sealed record PreferencesDto(
-        bool IsDarkTheme,
-        string ReadingDirection,
+        bool? IsDarkTheme,
+        string? ReadingDirection,
         string? ReaderWheelAction,
         bool? IsEdgePageTurnEnabled,
         bool? IsDragPageTurnEnabled,

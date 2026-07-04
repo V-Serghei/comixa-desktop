@@ -9,9 +9,12 @@
         <ResourceDictionary x:Key="Dark">
           <SolidColorBrush x:Key="ComixaBackgroundBrush"       Color="#0B0F12" />
           <SolidColorBrush x:Key="ComixaSurfaceBrush"          Color="#0E131A" />
+          <SolidColorBrush x:Key="ComixaSurfaceElevatedBrush"  Color="#151C24" />
           <SolidColorBrush x:Key="ComixaSurfaceVariantBrush"   Color="#1A212B" />
           <SolidColorBrush x:Key="ComixaPrimaryBrush"          Color="#00D47B" />
           <SolidColorBrush x:Key="ComixaSecondaryBrush"        Color="#A78BFA" />
+          <SolidColorBrush x:Key="ComixaTertiaryBrush"         Color="#F3B64B" />
+          <SolidColorBrush x:Key="ComixaDangerBrush"           Color="#FF6B8A" />
           <SolidColorBrush x:Key="ComixaOnSurfaceBrush"        Color="#E6EBF2" />
           <SolidColorBrush x:Key="ComixaOnSurfaceVariantBrush" Color="#A8B3C2" />
           <SolidColorBrush x:Key="ComixaOutlineBrush"          Color="#3A4654" />
@@ -20,9 +23,12 @@
         <ResourceDictionary x:Key="Light">
           <SolidColorBrush x:Key="ComixaBackgroundBrush"       Color="#F0F4F8" />
           <SolidColorBrush x:Key="ComixaSurfaceBrush"          Color="#FFFFFF" />
+          <SolidColorBrush x:Key="ComixaSurfaceElevatedBrush"  Color="#F8FAFC" />
           <SolidColorBrush x:Key="ComixaSurfaceVariantBrush"   Color="#E8EDF3" />
           <SolidColorBrush x:Key="ComixaPrimaryBrush"          Color="#007A47" />
           <SolidColorBrush x:Key="ComixaSecondaryBrush"        Color="#5B21B6" />
+          <SolidColorBrush x:Key="ComixaTertiaryBrush"         Color="#B7791F" />
+          <SolidColorBrush x:Key="ComixaDangerBrush"           Color="#C53050" />
           <SolidColorBrush x:Key="ComixaOnSurfaceBrush"        Color="#111827" />
           <SolidColorBrush x:Key="ComixaOnSurfaceVariantBrush" Color="#4B5563" />
           <SolidColorBrush x:Key="ComixaOutlineBrush"          Color="#CBD5E0" />
@@ -33,26 +39,6 @@
   </Application.Resources>
   <Application.Styles>
     <FluentTheme />
-
-    <Style Selector="Button">
-      <Setter Property="Transitions">
-        <Transitions>
-          <BrushTransition Property="Background" Duration="0:0:0.12" />
-          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
-          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
-        </Transitions>
-      </Setter>
-    </Style>
-
-    <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Transitions">
-        <Transitions>
-          <BrushTransition Property="Background" Duration="0:0:0.12" />
-          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
-          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
-        </Transitions>
-      </Setter>
-    </Style>
 
     <Style Selector="Button:pointerover">
       <Setter Property="Background" Value="#24303C" />
@@ -85,13 +71,87 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Padding" Value="12,7" />
       <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Transitions">
-        <Transitions>
-          <BrushTransition Property="Background" Duration="0:0:0.14" />
-          <BrushTransition Property="BorderBrush" Duration="0:0:0.14" />
-          <BrushTransition Property="Foreground" Duration="0:0:0.14" />
-        </Transitions>
-      </Setter>
+    </Style>
+
+    <Style Selector="Button.iconButton">
+      <Setter Property="Background" Value="{DynamicResource ComixaSurfaceVariantBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ComixaOnSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaOutlineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="Padding" Value="5" />
+      <Setter Property="MinWidth" Value="30" />
+      <Setter Property="Width" Value="30" />
+      <Setter Property="Height" Value="30" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.iconButton:pointerover">
+      <Setter Property="Background" Value="#263443" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.iconButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#263443" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.iconButton:pressed">
+      <Setter Property="Background" Value="#304256" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="Button.iconDangerButton">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource ComixaDangerBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="7" />
+      <Setter Property="Padding" Value="5" />
+      <Setter Property="MinWidth" Value="28" />
+      <Setter Property="Width" Value="28" />
+      <Setter Property="Height" Value="28" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.iconDangerButton:pointerover">
+      <Setter Property="Background" Value="#3A1E29" />
+      <Setter Property="Foreground" Value="#FFD7E1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaDangerBrush}" />
+    </Style>
+
+    <Style Selector="Button.iconDangerButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#3A1E29" />
+      <Setter Property="Foreground" Value="#FFD7E1" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaDangerBrush}" />
+    </Style>
+
+    <Style Selector="Button.libraryItemButton">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="4" />
+    </Style>
+
+    <Style Selector="Button.libraryItemButton:pointerover">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource ComixaOnSurfaceBrush}" />
+    </Style>
+
+    <Style Selector="Button.libraryItemButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource ComixaOnSurfaceBrush}" />
+    </Style>
+
+    <Style Selector="Button.libraryItemButton:pointerover Border.cardFrame">
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
     </Style>
 
     <Style Selector="Button.chromeButton:pointerover">
@@ -123,14 +183,70 @@
       <Setter Property="Foreground" Value="{DynamicResource ComixaOnSurfaceBrush}" />
       <Setter Property="BorderBrush" Value="Transparent" />
       <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Transitions">
-        <Transitions>
-          <BrushTransition Property="Background" Duration="0:0:0.12" />
-          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
-          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
-        </Transitions>
-      </Setter>
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+
+    <Style Selector="ToggleButton.filterChip">
+      <Setter Property="Background" Value="{DynamicResource ComixaSurfaceVariantBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaOutlineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,6" />
+    </Style>
+
+    <Style Selector="ToggleButton.filterChip:pointerover">
+      <Setter Property="Background" Value="#25313D" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="ToggleButton.filterChip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#25313D" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+    </Style>
+
+    <Style Selector="ToggleButton.filterChip:checked">
+      <Setter Property="Background" Value="{DynamicResource ComixaPrimaryBrush}" />
+      <Setter Property="Foreground" Value="#001B12" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="ToggleButton.filterChip:checked:pointerover">
+      <Setter Property="Background" Value="#38E99C" />
+      <Setter Property="Foreground" Value="#001B12" />
+      <Setter Property="BorderBrush" Value="#9AF7CE" />
+    </Style>
+
+    <Style Selector="ToggleButton.settingsTabButton">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="12,9" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+
+    <Style Selector="ToggleButton.settingsTabButton:pointerover">
+      <Setter Property="Background" Value="#202B36" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaOutlineBrush}" />
+    </Style>
+
+    <Style Selector="ToggleButton.settingsTabButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#202B36" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaOutlineBrush}" />
+    </Style>
+
+    <Style Selector="ToggleButton.settingsTabButton:checked">
+      <Setter Property="Background" Value="{DynamicResource ComixaSurfaceVariantBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ComixaOnSurfaceBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
     <Style Selector="Button.sidebarButton:pointerover">
@@ -163,14 +279,7 @@
       <Setter Property="BorderBrush" Value="#68788A" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Padding" Value="12,7" />
-      <Setter Property="Transitions">
-        <Transitions>
-          <BrushTransition Property="Background" Duration="0:0:0.12" />
-          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
-          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
-        </Transitions>
-      </Setter>
+      <Setter Property="Padding" Value="8,5" />
     </Style>
 
     <Style Selector="Button.readerButton:pointerover">
@@ -203,14 +312,7 @@
       <Setter Property="BorderBrush" Value="{DynamicResource ComixaPrimaryBrush}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Padding" Value="12,7" />
-      <Setter Property="Transitions">
-        <Transitions>
-          <BrushTransition Property="Background" Duration="0:0:0.12" />
-          <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
-          <BrushTransition Property="Foreground" Duration="0:0:0.12" />
-        </Transitions>
-      </Setter>
+      <Setter Property="Padding" Value="8,5" />
     </Style>
 
     <Style Selector="Button.readerPrimaryButton:pointerover">

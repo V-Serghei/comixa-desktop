@@ -1,6 +1,9 @@
 using System.IO.Compression;
 using Comixa.Core.Models;
 using Comixa.Reader.Archives;
+using SharpCompress.Archives;
+using SharpCompress.Common;
+using SharpCompress.Readers;
 
 namespace Comixa.Reader.Scanning;
 
@@ -15,11 +18,15 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
     private static readonly Dictionary<string, ComicFormat> DetectedOnlyExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         [".pdf"] = ComicFormat.Pdf,
+        [".epub"] = ComicFormat.Epub
+    };
+
+    private static readonly Dictionary<string, ComicFormat> CompressedArchiveExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
         [".cbr"] = ComicFormat.Cbr,
         [".rar"] = ComicFormat.Rar,
         [".7z"] = ComicFormat.SevenZip,
-        [".cb7"] = ComicFormat.SevenZip,
-        [".epub"] = ComicFormat.Epub
+        [".cb7"] = ComicFormat.SevenZip
     };
 
     private static readonly HashSet<string> NestedComicExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -38,13 +45,20 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
     {
         ".jpg",
         ".jpeg",
+        ".jpe",
+        ".jfif",
         ".png",
         ".webp",
         ".avif",
         ".gif",
         ".bmp",
         ".tif",
-        ".tiff"
+        ".tiff",
+        ".jp2",
+        ".j2k",
+        ".jpf",
+        ".heic",
+        ".heif"
     };
 
     public async Task<IReadOnlyList<ScannedComicFile>> ScanAsync(string rootFolder, CancellationToken cancellationToken = default)
@@ -116,6 +130,17 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
             yield break;
         }
 
+        if (CompressedArchiveExtensions.TryGetValue(extension, out var compressedFormat))
+        {
+            yield return new ScannedComicFile(
+                fileInfo.FullName,
+                fileInfo.Name,
+                compressedFormat,
+                fileInfo.Length,
+                InspectCompressedArchive(path, extension));
+            yield break;
+        }
+
         if (DetectedOnlyExtensions.TryGetValue(extension, out var detectedFormat))
         {
             yield return new ScannedComicFile(
@@ -124,6 +149,47 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
                 detectedFormat,
                 fileInfo.Length,
                 0);
+        }
+    }
+
+    private static int InspectCompressedArchive(string archivePath, string extension)
+    {
+        try
+        {
+            using var archiveStream = extension.Equals(".cbr", StringComparison.OrdinalIgnoreCase) ||
+                                      extension.Equals(".rar", StringComparison.OrdinalIgnoreCase)
+                ? ComicArchiveStreamFactory.TryOpenRarArchiveStream(archivePath)
+                : ComicArchiveStreamFactory.TryOpenArchiveStream(archivePath);
+            if (archiveStream is null)
+            {
+                return 0;
+            }
+
+            var extensionHint = extension.Equals(".cbr", StringComparison.OrdinalIgnoreCase)
+                ? ".rar"
+                : extension.Equals(".cb7", StringComparison.OrdinalIgnoreCase)
+                    ? ".7z"
+                    : extension;
+            using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
+            {
+                LeaveStreamOpen = true,
+                ExtensionHint = extensionHint
+            });
+
+            return archive.Entries.Count(entry =>
+                !entry.IsDirectory &&
+                !string.IsNullOrWhiteSpace(entry.Key) &&
+                IsImageFile(entry.Key));
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or InvalidDataException
+            or InvalidFormatException
+            or ArgumentException
+            or InvalidOperationException
+            or NotSupportedException)
+        {
+            return 0;
         }
     }
 
