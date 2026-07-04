@@ -35,16 +35,30 @@
                             CornerRadius="3" />
                     <Button Command="{Binding Command}"
                             Classes="sidebarButton"
-                            HorizontalAlignment="Left"
-                            HorizontalContentAlignment="Center"
-                            Padding="12,8"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Padding="9,7"
                             BorderThickness="0"
                             ToolTip.Tip="{Binding ToolTip}"
-                            Width="34"
-                            Height="32">
-                      <PathIcon Data="{Binding Icon}"
-                                Width="16"
-                                Height="16" />
+                            Height="34">
+                      <Grid ColumnDefinitions="22,*,Auto">
+                        <PathIcon Data="{Binding Icon}"
+                                  Width="15"
+                                  Height="15"
+                                  VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Label}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding Detail}"
+                                   FontSize="10"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                                   IsVisible="{Binding HasDetail}" />
+                      </Grid>
                     </Button>
                   </Panel>
                 </DataTemplate>
@@ -69,154 +83,34 @@
                             CornerRadius="3" />
                     <Button Command="{Binding Command}"
                             Classes="sidebarButton"
-                            HorizontalAlignment="Left"
-                            HorizontalContentAlignment="Center"
-                            Padding="12,8"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Padding="9,5"
                             BorderThickness="0"
                             ToolTip.Tip="{Binding ToolTip}"
-                            Width="34"
-                            Height="32">
-                      <PathIcon Data="{Binding Icon}"
-                                Width="16"
-                                Height="16" />
+                            Height="28">
+                      <Grid ColumnDefinitions="20,*,Auto">
+                        <PathIcon Data="{Binding Icon}"
+                                  Width="13"
+                                  Height="13"
+                                  VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Label}"
+                                   FontSize="11"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding Detail}"
+                                   FontSize="9"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                                   IsVisible="{Binding HasDetail}" />
+                      </Grid>
                     </Button>
                   </Panel>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-          </StackPanel>
-
-          <StackPanel Spacing="6">
-            <Grid ColumnDefinitions="*,Auto" Margin="6,0,0,0">
-              <TextBlock Text="FOLDERS"
-                         FontSize="9"
-                         FontWeight="SemiBold"
-                         LetterSpacing="1.5"
-                         Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
-              <Button Grid.Column="1"
-                      Command="{Binding ScanFolderCommand}"
-                      Classes="iconButton"
-                      ToolTip.Tip="Add folder"
-                      Width="28"
-                      Height="28"
-                      MinWidth="28">
-                <PathIcon Data="M10,4L12,6H20C21.1,6 22,6.9 22,8V18C22,19.1 21.1,20 20,20H4C2.9,20 2,19.1 2,18V6C2,4.9 2.9,4 4,4H10M19,13H16V10H14V13H11V15H14V18H16V15H19V13Z"
-                          Width="16"
-                          Height="16" />
-              </Button>
-            </Grid>
-            <ItemsControl ItemsSource="{Binding LibraryFolders}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:LibraryFolderViewModel">
-                <Panel Margin="4,1">
-                  <Border IsVisible="{Binding IsActive}"
-                          BorderBrush="{DynamicResource ComixaPrimaryBrush}"
-                          BorderThickness="3,0,0,0" />
-                  <Button Command="{Binding SelectCommand}"
-                          Classes="sidebarButton"
-                          HorizontalAlignment="Stretch"
-                          HorizontalContentAlignment="Left"
-                          Padding="10,8"
-                          BorderThickness="0">
-                    <StackPanel Spacing="2">
-                      <TextBlock Text="{Binding Name}"
-                                 FontSize="12"
-                                 FontWeight="SemiBold"
-                                 Foreground="{DynamicResource ComixaOnSurfaceBrush}"
-                                 TextTrimming="CharacterEllipsis"
-                                 MaxWidth="174" />
-                      <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="{Binding Path}"
-                                   FontSize="9"
-                                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
-                                   TextTrimming="CharacterEllipsis"
-                                   MaxWidth="132" />
-                        <TextBlock Grid.Column="1"
-                                   Text="{Binding CountLabel}"
-                                   FontSize="9"
-                                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
-                      </Grid>
-                    </StackPanel>
-                  </Button>
-                </Panel>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-          </StackPanel>
-
-          <StackPanel Spacing="6">
-          <Grid ColumnDefinitions="*,Auto" Margin="6,0,0,0">
-            <TextBlock Text="SHELVES"
-                       FontSize="9"
-                       FontWeight="SemiBold"
-                       LetterSpacing="1.5"
-                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
-                       VerticalAlignment="Center" />
-            <Button Grid.Column="1"
-                    Command="{Binding StartCreateShelfCommand}"
-                    Classes="iconButton"
-                    ToolTip.Tip="New shelf"
-                    Width="28"
-                    Height="28"
-                    MinWidth="28">
-              <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"
-                        Width="16"
-                        Height="16" />
-            </Button>
-          </Grid>
-
-          <Grid IsVisible="{Binding IsCreatingShelf}"
-                ColumnDefinitions="*,Auto,Auto"
-                Margin="8,0,8,6">
-            <TextBox Text="{Binding NewShelfName}" PlaceholderText="Shelf name..." FontSize="12" />
-            <Button Grid.Column="1"
-                    Command="{Binding ConfirmNewShelfCommand}"
-                    Classes="iconButton"
-                    Margin="4,0,0,0"
-                    ToolTip.Tip="Create">
-              <PathIcon Data="M9,16.17L4.83,12L3.41,13.41L9,19L21,7L19.59,5.59L9,16.17Z"
-                        Width="16"
-                        Height="16" />
-            </Button>
-            <Button Grid.Column="2"
-                    Command="{Binding CancelNewShelfCommand}"
-                    Classes="iconButton"
-                    Margin="2,0,0,0"
-                    ToolTip.Tip="Cancel">
-              <PathIcon Data="M18.3,5.71L12,12L18.3,18.29L16.89,19.7L10.59,13.41L4.29,19.7L2.88,18.29L9.17,12L2.88,5.71L4.29,4.3L10.59,10.59L16.89,4.3L18.3,5.71Z"
-                        Width="16"
-                        Height="16" />
-            </Button>
-          </Grid>
-
-          <ItemsControl ItemsSource="{Binding Shelves}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:ShelfViewModel">
-                <Grid ColumnDefinitions="*,Auto" Margin="4,1">
-                  <Button Command="{Binding SelectCommand}"
-                          Classes="sidebarButton"
-                          HorizontalAlignment="Stretch"
-                          HorizontalContentAlignment="Left"
-                          Padding="12,8"
-                          BorderThickness="0">
-                    <TextBlock Text="{Binding Name}"
-                               FontSize="12"
-                               Foreground="{DynamicResource ComixaOnSurfaceBrush}"
-                               TextTrimming="CharacterEllipsis"
-                               MaxWidth="138" />
-                  </Button>
-                  <Button Grid.Column="1"
-                          Command="{Binding DeleteCommand}"
-                          Classes="iconDangerButton"
-                          ToolTip.Tip="Delete shelf">
-                    <PathIcon Data="M6,19C6,20.1 6.9,21 8,21H16C17.1,21 18,20.1 18,19V7H6V19M8,9H16V19H8V9M15.5,4L14.5,3H9.5L8.5,4H5V6H19V4H15.5Z"
-                              Width="15"
-                              Height="15" />
-                  </Button>
-                </Grid>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
           </StackPanel>
 
           <StackPanel Spacing="8">

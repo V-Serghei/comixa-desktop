@@ -24,7 +24,15 @@
             <MenuItem Header="Mark as Unread" Command="{Binding MarkAsUnreadCommand}" />
             <Separator />
             <MenuItem Header="Add to shelf..."
-                      IsVisible="{Binding HasShelfItems}" />
+                      ItemsSource="{Binding ShelfItems}"
+                      IsVisible="{Binding HasShelfItems}">
+              <MenuItem.ItemTemplate>
+                <DataTemplate x:DataType="vm:ShelfMenuItemViewModel">
+                  <MenuItem Header="{Binding MenuText}"
+                            Command="{Binding ToggleCommand}" />
+                </DataTemplate>
+              </MenuItem.ItemTemplate>
+            </MenuItem>
             <MenuItem Header="No shelves yet"
                       IsVisible="{Binding !HasShelfItems}"
                       IsEnabled="False" />
@@ -290,6 +298,313 @@
     </StackPanel>
 
     <Grid Grid.Row="4">
+      <Grid RowDefinitions="Auto,*"
+            IsVisible="{Binding IsFoldersBrowserView}">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,12">
+          <StackPanel Spacing="3">
+            <TextBlock Text="Folders"
+                       FontSize="18"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+            <TextBlock Text="{Binding FolderStatsLabel}"
+                       FontSize="11"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+          </StackPanel>
+          <Button Grid.Column="1"
+                  Classes="iconButton"
+                  Command="{Binding ScanFolderCommand}"
+                  ToolTip.Tip="Add Folder"
+                  Margin="0,0,6,0">
+            <PathIcon Data="M10,4L12,6H20C21.1,6 22,6.9 22,8V18C22,19.1 21.1,20 20,20H4C2.9,20 2,19.1 2,18V6C2,4.9 2.9,4 4,4H10M19,13H16V10H14V13H11V15H14V18H16V15H19V13Z"
+                      Width="16"
+                      Height="16" />
+          </Button>
+          <Button Grid.Column="2"
+                  Classes="iconButton"
+                  Command="{Binding RefreshLibraryCommand}"
+                  ToolTip.Tip="Refresh"
+                  Margin="0,0,6,0">
+            <PathIcon Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0,0 0,4,12A8,8 0,0 0,12 20C15.73,20 18.84,17.45 19.73,14H17.65C16.82,16.33 14.61,18 12,18A6,6 0,0 1,6 12A6,6 0,0 1,12 6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"
+                      Width="16"
+                      Height="16" />
+          </Button>
+          <Button Grid.Column="3"
+                  Classes="iconButton"
+                  Command="{Binding ToggleFolderDisplayModeCommand}"
+                  ToolTip.Tip="{Binding FolderDisplayModeLabel}">
+            <PathIcon Data="M4,5H20V7H4V5M4,11H20V13H4V11M4,17H20V19H4V17Z"
+                      Width="16"
+                      Height="16" />
+          </Button>
+        </Grid>
+
+        <TextBlock Grid.Row="1"
+                   Text="No watched folders"
+                   IsVisible="{Binding !HasLibraryFolders}"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+
+        <ScrollViewer Grid.Row="1"
+                      IsVisible="{Binding HasLibraryFolders}"
+                      VerticalScrollBarVisibility="Auto">
+          <Panel>
+            <ItemsControl ItemsSource="{Binding LibraryFolders}"
+                          IsVisible="{Binding IsFolderCardsView}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:LibraryFolderViewModel">
+                  <Border Width="188"
+                          MinHeight="98"
+                          Margin="0,0,10,10"
+                          Padding="12"
+                          Background="{DynamicResource ComixaSurfaceBrush}"
+                          BorderBrush="{DynamicResource ComixaOutlineBrush}"
+                          BorderThickness="1"
+                          CornerRadius="7">
+                    <Grid RowDefinitions="*,Auto" ColumnDefinitions="*,Auto">
+                      <Button Command="{Binding SelectCommand}"
+                              Classes="sidebarButton"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left"
+                              BorderThickness="0"
+                              Padding="0">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="{Binding Name}"
+                                     FontSize="13"
+                                     FontWeight="SemiBold"
+                                     Foreground="{DynamicResource ComixaOnSurfaceBrush}"
+                                     TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding Path}"
+                                     FontSize="10"
+                                     MaxLines="2"
+                                     TextWrapping="Wrap"
+                                     TextTrimming="CharacterEllipsis"
+                                     Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+                        </StackPanel>
+                      </Button>
+                      <TextBlock Grid.Row="1"
+                                 Text="{Binding CountLabel}"
+                                 FontSize="10"
+                                 Foreground="{DynamicResource ComixaPrimaryBrush}"
+                                 Margin="0,8,0,0" />
+                      <Button Grid.Row="1"
+                              Grid.Column="1"
+                              Command="{Binding RemoveCommand}"
+                              Classes="iconDangerButton"
+                              ToolTip.Tip="Remove folder"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Bottom">
+                        <PathIcon Data="M6,19C6,20.1 6.9,21 8,21H16C17.1,21 18,20.1 18,19V7H6V19M8,9H16V19H8V9M15.5,4L14.5,3H9.5L8.5,4H5V6H19V4H15.5Z"
+                                  Width="14"
+                                  Height="14" />
+                      </Button>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <ItemsControl ItemsSource="{Binding LibraryFolders}"
+                          IsVisible="{Binding IsFolderListView}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:LibraryFolderViewModel">
+                  <Grid ColumnDefinitions="*,Auto,Auto"
+                        Margin="0,0,0,8"
+                        Background="{DynamicResource ComixaSurfaceBrush}">
+                    <Button Command="{Binding SelectCommand}"
+                            Classes="sidebarButton"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Padding="10,8"
+                            BorderThickness="0">
+                      <StackPanel Spacing="2">
+                        <TextBlock Text="{Binding Name}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+                        <TextBlock Text="{Binding Path}"
+                                   FontSize="10"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+                      </StackPanel>
+                    </Button>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding CountLabel}"
+                               FontSize="10"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}"
+                               Margin="10,0" />
+                    <Button Grid.Column="2"
+                            Command="{Binding RemoveCommand}"
+                            Classes="iconDangerButton"
+                            ToolTip.Tip="Remove folder"
+                            VerticalAlignment="Center">
+                      <PathIcon Data="M6,19C6,20.1 6.9,21 8,21H16C17.1,21 18,20.1 18,19V7H6V19M8,9H16V19H8V9M15.5,4L14.5,3H9.5L8.5,4H5V6H19V4H15.5Z"
+                                Width="14"
+                                Height="14" />
+                    </Button>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Panel>
+        </ScrollViewer>
+      </Grid>
+
+      <Grid RowDefinitions="Auto,Auto,*"
+            IsVisible="{Binding IsShelvesBrowserView}">
+        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+          <StackPanel Spacing="3">
+            <TextBlock Text="Shelves"
+                       FontSize="18"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource ComixaOnSurfaceBrush}" />
+            <TextBlock Text="{Binding ShelfStatsLabel}"
+                       FontSize="11"
+                       Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+            <Button Classes="iconButton"
+                    Command="{Binding StartCreateShelfCommand}"
+                    ToolTip.Tip="New shelf">
+              <PathIcon Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"
+                        Width="16"
+                        Height="16" />
+            </Button>
+            <Button Classes="iconButton"
+                    Command="{Binding ToggleShelfDisplayModeCommand}"
+                    ToolTip.Tip="{Binding ShelfDisplayModeLabel}">
+              <PathIcon Data="M4,5H20V7H4V5M4,11H20V13H4V11M4,17H20V19H4V17Z"
+                        Width="16"
+                        Height="16" />
+            </Button>
+          </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1"
+              IsVisible="{Binding IsCreatingShelf}"
+              ColumnDefinitions="*,Auto,Auto"
+              Margin="0,0,0,12">
+          <TextBox Text="{Binding NewShelfName}" PlaceholderText="Shelf name..." FontSize="12" />
+          <Button Grid.Column="1"
+                  Command="{Binding ConfirmNewShelfCommand}"
+                  Classes="iconButton"
+                  Margin="6,0,0,0"
+                  ToolTip.Tip="Create">
+            <PathIcon Data="M9,16.17L4.83,12L3.41,13.41L9,19L21,7L19.59,5.59L9,16.17Z"
+                      Width="16"
+                      Height="16" />
+          </Button>
+          <Button Grid.Column="2"
+                  Command="{Binding CancelNewShelfCommand}"
+                  Classes="iconButton"
+                  Margin="4,0,0,0"
+                  ToolTip.Tip="Cancel">
+            <PathIcon Data="M18.3,5.71L12,12L18.3,18.29L16.89,19.7L10.59,13.41L4.29,19.7L2.88,18.29L9.17,12L2.88,5.71L4.29,4.3L10.59,10.59L16.89,4.3L18.3,5.71Z"
+                      Width="16"
+                      Height="16" />
+          </Button>
+        </Grid>
+
+        <TextBlock Grid.Row="2"
+                   Text="No shelves yet"
+                   IsVisible="{Binding !HasShelves}"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource ComixaOnSurfaceVariantBrush}" />
+
+        <ScrollViewer Grid.Row="2"
+                      IsVisible="{Binding HasShelves}"
+                      VerticalScrollBarVisibility="Auto">
+          <Panel>
+            <ItemsControl ItemsSource="{Binding Shelves}"
+                          IsVisible="{Binding IsShelfCardsView}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ShelfViewModel">
+                  <Border Width="168"
+                          MinHeight="78"
+                          Margin="0,0,10,10"
+                          Padding="12"
+                          Background="{DynamicResource ComixaSurfaceBrush}"
+                          BorderBrush="{DynamicResource ComixaOutlineBrush}"
+                          BorderThickness="1"
+                          CornerRadius="7">
+                    <Grid RowDefinitions="*,Auto" ColumnDefinitions="*,Auto">
+                      <Button Command="{Binding SelectCommand}"
+                              Classes="sidebarButton"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left"
+                              Padding="0"
+                              BorderThickness="0">
+                        <TextBlock Text="{Binding Name}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ComixaOnSurfaceBrush}"
+                                   TextTrimming="CharacterEllipsis" />
+                      </Button>
+                      <Button Grid.Row="1"
+                              Grid.Column="1"
+                              Command="{Binding DeleteCommand}"
+                              Classes="iconDangerButton"
+                              ToolTip.Tip="Delete shelf"
+                              HorizontalAlignment="Right">
+                        <PathIcon Data="M6,19C6,20.1 6.9,21 8,21H16C17.1,21 18,20.1 18,19V7H6V19M8,9H16V19H8V9M15.5,4L14.5,3H9.5L8.5,4H5V6H19V4H15.5Z"
+                                  Width="14"
+                                  Height="14" />
+                      </Button>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <ItemsControl ItemsSource="{Binding Shelves}"
+                          IsVisible="{Binding IsShelfListView}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ShelfViewModel">
+                  <Grid ColumnDefinitions="*,Auto"
+                        Margin="0,0,0,8"
+                        Background="{DynamicResource ComixaSurfaceBrush}">
+                    <Button Command="{Binding SelectCommand}"
+                            Classes="sidebarButton"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Padding="10,8"
+                            BorderThickness="0">
+                      <TextBlock Text="{Binding Name}"
+                                 FontSize="13"
+                                 FontWeight="SemiBold"
+                                 Foreground="{DynamicResource ComixaOnSurfaceBrush}"
+                                 TextTrimming="CharacterEllipsis" />
+                    </Button>
+                    <Button Grid.Column="1"
+                            Command="{Binding DeleteCommand}"
+                            Classes="iconDangerButton"
+                            ToolTip.Tip="Delete shelf"
+                            VerticalAlignment="Center">
+                      <PathIcon Data="M6,19C6,20.1 6.9,21 8,21H16C17.1,21 18,20.1 18,19V7H6V19M8,9H16V19H8V9M15.5,4L14.5,3H9.5L8.5,4H5V6H19V4H15.5Z"
+                                Width="14"
+                                Height="14" />
+                    </Button>
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Panel>
+        </ScrollViewer>
+      </Grid>
+
+      <Grid IsVisible="{Binding IsLibraryCollectionView}">
       <Grid IsVisible="{Binding !IsInSeriesDetail}">
         <StackPanel IsVisible="{Binding IsLibraryEmpty}"
                     HorizontalAlignment="Center"
@@ -395,5 +710,6 @@
         </ScrollViewer>
       </Grid>
     </Grid>
+  </Grid>
   </Grid>
 </UserControl>

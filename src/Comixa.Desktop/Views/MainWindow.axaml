@@ -52,17 +52,10 @@
                 Command="{Binding ToggleThemeCommand}"
                 ToolTip.Tip="{Binding ThemeToggleLabel}"
                 VerticalAlignment="Center"
-                Width="72"
-                MinWidth="72"
                 Margin="0,0,8,0">
-          <StackPanel Orientation="Horizontal" Spacing="6">
-            <PathIcon Data="{Binding ThemeIcon}"
-                      Width="15"
-                      Height="15" />
-            <TextBlock Text="{Binding ThemeToggleLabel}"
-                       FontSize="12"
-                       VerticalAlignment="Center" />
-          </StackPanel>
+          <PathIcon Data="{Binding ThemeIcon}"
+                    Width="17"
+                    Height="17" />
         </Button>
         <Button Grid.Column="4"
                 Classes="iconButton"
