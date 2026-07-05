@@ -1,44 +1,15 @@
 using System.IO.Compression;
 using Comixa.Core.Models;
-using Comixa.Reader.Archives;
-using SharpCompress.Archives;
-using SharpCompress.Common;
-using SharpCompress.Readers;
 
 namespace Comixa.Reader.Scanning;
 
 public sealed class LocalComicLibraryScanner : IComicLibraryScanner
 {
-    private static readonly HashSet<string> ArchiveExtensions = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, ComicFormat> SupportedFileExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".cbz",
-        ".zip"
-    };
-
-    private static readonly Dictionary<string, ComicFormat> DetectedOnlyExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        [".pdf"] = ComicFormat.Pdf,
-        [".epub"] = ComicFormat.Epub
-    };
-
-    private static readonly Dictionary<string, ComicFormat> CompressedArchiveExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        [".cbr"] = ComicFormat.Cbr,
-        [".rar"] = ComicFormat.Rar,
-        [".7z"] = ComicFormat.SevenZip,
-        [".cb7"] = ComicFormat.SevenZip
-    };
-
-    private static readonly HashSet<string> NestedComicExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".cbz",
-        ".zip",
-        ".pdf",
-        ".cbr",
-        ".rar",
-        ".7z",
-        ".cb7",
-        ".epub"
+        [".cbz"] = ComicFormat.Cbz,
+        [".zip"] = ComicFormat.Zip,
+        [".pdf"] = ComicFormat.Pdf
     };
 
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -76,18 +47,10 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
 
             foreach (var filePath in EnumerateFiles(rootFolder, cancellationToken))
             {
-                foreach (var scannedFile in TryCreateScannedFiles(filePath, cancellationToken))
+                var scannedFile = TryCreateScannedFile(filePath, cancellationToken);
+                if (scannedFile is not null)
                 {
                     files.Add(scannedFile);
-                }
-            }
-
-            foreach (var directoryPath in EnumerateDirectories(rootFolder, cancellationToken))
-            {
-                var imageFolder = TryCreateImageFolder(directoryPath, cancellationToken);
-                if (imageFolder is not null)
-                {
-                    files.Add(imageFolder);
                 }
             }
 
@@ -102,239 +65,63 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
         return ImageExtensions.Contains(Path.GetExtension(path));
     }
 
-    private static IEnumerable<ScannedComicFile> TryCreateScannedFiles(string path, CancellationToken cancellationToken)
+    private static ScannedComicFile? TryCreateScannedFile(string path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         var extension = Path.GetExtension(path);
-        var fileInfo = new FileInfo(path);
-        if (ArchiveExtensions.Contains(extension))
-        {
-            var archive = InspectArchive(path);
-            if (archive.PageCount > 0)
-            {
-                yield return new ScannedComicFile(
-                    fileInfo.FullName,
-                    fileInfo.Name,
-                    extension.Equals(".cbz", StringComparison.OrdinalIgnoreCase) ? ComicFormat.Cbz : ComicFormat.Zip,
-                    fileInfo.Length,
-                    archive.PageCount,
-                    ComicArchiveMetadataReader.TryReadTitleMetadata(path, fileInfo.Name));
-            }
-
-            foreach (var nestedArchive in archive.NestedComicArchives)
-            {
-                yield return nestedArchive;
-            }
-
-            yield break;
-        }
-
-        if (CompressedArchiveExtensions.TryGetValue(extension, out var compressedFormat))
-        {
-            yield return new ScannedComicFile(
-                fileInfo.FullName,
-                fileInfo.Name,
-                compressedFormat,
-                fileInfo.Length,
-                InspectCompressedArchive(path, extension));
-            yield break;
-        }
-
-        if (DetectedOnlyExtensions.TryGetValue(extension, out var detectedFormat))
-        {
-            yield return new ScannedComicFile(
-                fileInfo.FullName,
-                fileInfo.Name,
-                detectedFormat,
-                fileInfo.Length,
-                0);
-        }
-    }
-
-    private static int InspectCompressedArchive(string archivePath, string extension)
-    {
-        try
-        {
-            using var archiveStream = extension.Equals(".cbr", StringComparison.OrdinalIgnoreCase) ||
-                                      extension.Equals(".rar", StringComparison.OrdinalIgnoreCase)
-                ? ComicArchiveStreamFactory.TryOpenRarArchiveStream(archivePath)
-                : ComicArchiveStreamFactory.TryOpenArchiveStream(archivePath);
-            if (archiveStream is null)
-            {
-                return 0;
-            }
-
-            var extensionHint = extension.Equals(".cbr", StringComparison.OrdinalIgnoreCase)
-                ? ".rar"
-                : extension.Equals(".cb7", StringComparison.OrdinalIgnoreCase)
-                    ? ".7z"
-                    : extension;
-            using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
-            {
-                LeaveStreamOpen = true,
-                ExtensionHint = extensionHint
-            });
-
-            return archive.Entries.Count(entry =>
-                !entry.IsDirectory &&
-                !string.IsNullOrWhiteSpace(entry.Key) &&
-                IsImageFile(entry.Key));
-        }
-        catch (Exception exception) when (exception is IOException
-            or UnauthorizedAccessException
-            or InvalidDataException
-            or InvalidFormatException
-            or ArgumentException
-            or InvalidOperationException
-            or NotSupportedException)
-        {
-            return 0;
-        }
-    }
-
-    private static ScannedComicFile? TryCreateImageFolder(string directoryPath, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var imageFiles = EnumerateDirectFiles(directoryPath)
-            .Where(IsImageFile)
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        if (imageFiles.Length == 0)
+        if (!SupportedFileExtensions.TryGetValue(extension, out var format))
         {
             return null;
         }
 
-        var directoryInfo = new DirectoryInfo(directoryPath);
-        var sizeBytes = imageFiles.Sum(path => new FileInfo(path).Length);
+        var fileInfo = new FileInfo(path);
+        if (format is ComicFormat.Cbz or ComicFormat.Zip)
+        {
+            var pageCount = InspectZipArchive(path);
+            if (pageCount <= 0)
+            {
+                return null;
+            }
+
+            return new ScannedComicFile(
+                fileInfo.FullName,
+                fileInfo.Name,
+                format,
+                fileInfo.Length,
+                pageCount,
+                ComicArchiveMetadataReader.TryReadTitleMetadata(path, fileInfo.Name));
+        }
 
         return new ScannedComicFile(
-            directoryInfo.FullName,
-            directoryInfo.Name,
-            ComicFormat.ImageFolder,
-            sizeBytes,
-            imageFiles.Length);
+            fileInfo.FullName,
+            fileInfo.Name,
+            ComicFormat.Pdf,
+            fileInfo.Length,
+            0);
     }
 
-    private static ArchiveInspection InspectArchive(string archivePath)
+    private static int InspectZipArchive(string archivePath)
     {
         try
         {
             using var archive = ZipFile.OpenRead(archivePath);
-            var pageCount = 0;
-            var nestedComicArchives = new List<ScannedComicFile>();
-
-            foreach (var entry in archive.Entries)
-            {
-                if (string.IsNullOrWhiteSpace(entry.Name))
-                {
-                    continue;
-                }
-
-                var extension = Path.GetExtension(entry.FullName);
-                if (ImageExtensions.Contains(extension))
-                {
-                    pageCount++;
-                }
-                else if (NestedComicExtensions.Contains(extension))
-                {
-                    var nestedFile = TryCreateNestedArchiveFile(archivePath, entry);
-                    if (nestedFile is not null)
-                    {
-                        nestedComicArchives.Add(nestedFile);
-                    }
-                }
-            }
-
-            return new ArchiveInspection(pageCount, nestedComicArchives);
+            return archive.Entries.Count(entry =>
+                !string.IsNullOrWhiteSpace(entry.Name) &&
+                ImageExtensions.Contains(Path.GetExtension(entry.FullName)));
         }
         catch (InvalidDataException)
         {
-            return ArchiveInspection.Empty;
+            return 0;
         }
         catch (IOException)
         {
-            return ArchiveInspection.Empty;
+            return 0;
         }
         catch (UnauthorizedAccessException)
         {
-            return ArchiveInspection.Empty;
+            return 0;
         }
-    }
-
-    private static ScannedComicFile? TryCreateNestedArchiveFile(string outerArchivePath, ZipArchiveEntry entry)
-    {
-        var nestedFormat = GetComicFormat(Path.GetExtension(entry.FullName));
-        if (nestedFormat is null)
-        {
-            return null;
-        }
-
-        var nestedPath = ComicArchiveLocator.CreateNestedArchivePath(outerArchivePath, entry.FullName);
-        return new ScannedComicFile(
-            nestedPath,
-            Path.GetFileName(entry.FullName),
-            nestedFormat.Value,
-            entry.Length,
-            0,
-            ResolveNestedTitleMetadata(outerArchivePath, entry.FullName));
-    }
-
-    private static ParsedComicTitle? ResolveNestedTitleMetadata(string outerArchivePath, string nestedEntryName)
-    {
-        var nestedFileName = Path.GetFileName(nestedEntryName);
-        var nestedTitle = ComicTitleParser.Parse(nestedFileName);
-        if (!IsWeakNestedSeries(nestedTitle))
-        {
-            return null;
-        }
-
-        var outerTitle = ComicTitleParser.Parse(Path.GetFileName(outerArchivePath));
-        if (string.IsNullOrWhiteSpace(outerTitle.SeriesName))
-        {
-            return null;
-        }
-
-        var displayTitle = ComicTitleParser.BuildSeriesDisplayTitle(
-            outerTitle.SeriesName,
-            nestedTitle.IssueNumber,
-            nestedTitle.VolumeNumber);
-
-        return nestedTitle with
-        {
-            DisplayTitle = string.IsNullOrWhiteSpace(displayTitle) ? nestedTitle.DisplayTitle : displayTitle,
-            SeriesName = outerTitle.SeriesName
-        };
-    }
-
-    private static bool IsWeakNestedSeries(ParsedComicTitle title)
-    {
-        return title.IssueNumber is not null &&
-            (title.SeriesName.Equals(title.DisplayTitle, StringComparison.OrdinalIgnoreCase)
-                || int.TryParse(title.SeriesName, out _)
-                || title.SeriesName.StartsWith("chapter", StringComparison.OrdinalIgnoreCase)
-                || title.SeriesName.StartsWith("ch ", StringComparison.OrdinalIgnoreCase)
-                || title.SeriesName.StartsWith("part", StringComparison.OrdinalIgnoreCase)
-                || title.SeriesName.StartsWith("pt ", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static ComicFormat? GetComicFormat(string extension)
-    {
-        if (extension.Equals(".cbz", StringComparison.OrdinalIgnoreCase))
-        {
-            return ComicFormat.Cbz;
-        }
-
-        if (extension.Equals(".zip", StringComparison.OrdinalIgnoreCase))
-        {
-            return ComicFormat.Zip;
-        }
-
-        return DetectedOnlyExtensions.TryGetValue(extension, out var format)
-            ? format
-            : null;
     }
 
     private static IEnumerable<string> EnumerateFiles(string rootFolder, CancellationToken cancellationToken)
@@ -411,10 +198,5 @@ public sealed class LocalComicLibraryScanner : IComicLibraryScanner
             || name.Equals("bin", StringComparison.OrdinalIgnoreCase)
             || name.Equals("obj", StringComparison.OrdinalIgnoreCase)
             || name.Equals("node_modules", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private sealed record ArchiveInspection(int PageCount, IReadOnlyList<ScannedComicFile> NestedComicArchives)
-    {
-        public static ArchiveInspection Empty { get; } = new(0, []);
     }
 }

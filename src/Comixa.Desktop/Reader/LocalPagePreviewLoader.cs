@@ -8,9 +8,6 @@ using Comixa.Reader.Scanning;
 using ImageMagick;
 using PDFtoImage;
 using PDFtoImage.Exceptions;
-using SharpCompress.Archives;
-using SharpCompress.Common;
-using SharpCompress.Readers;
 
 namespace Comixa.Desktop.Reader;
 
@@ -40,7 +37,6 @@ public sealed class LocalPagePreviewLoader :
         UseTiling: true);
 
     private static readonly ConcurrentDictionary<string, string[]> ArchiveImageEntryNames = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly ConcurrentDictionary<string, string[]> FolderImagePaths = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly PageBitmapCache _pageCache = new(MaxCachedPages, MaxCachedPageBytes, PageIdleLifetime, CleanupInterval);
     private readonly PageBitmapCache _renderCache = new(MaxRenderedPages, MaxCachedRenderedPageBytes, PageIdleLifetime, CleanupInterval);
@@ -158,9 +154,6 @@ public sealed class LocalPagePreviewLoader :
                 return comicBook.Format switch
                 {
                     ComicFormat.Cbz or ComicFormat.Zip => GetArchiveImageEntryNames(comicBook.FilePath).Length,
-                    ComicFormat.Cbr or ComicFormat.Rar => GetRarImageEntryNames(comicBook.FilePath).Length,
-                    ComicFormat.SevenZip => GetCompressedArchiveImageEntryNames(comicBook.FilePath, ".7z").Length,
-                    ComicFormat.ImageFolder => GetFolderImagePaths(comicBook.FilePath).Length,
                     ComicFormat.Pdf => GetPdfPageCount(comicBook.FilePath),
                     _ => 0
                 };
@@ -193,18 +186,6 @@ public sealed class LocalPagePreviewLoader :
             if (comicBook.Format is ComicFormat.Cbz or ComicFormat.Zip)
             {
                 await PreloadArchivePagesAsync(comicBook, startPageIndex, cancellationToken);
-                return;
-            }
-
-            if (comicBook.Format is ComicFormat.Cbr or ComicFormat.Rar)
-            {
-                await PreloadCompressedArchivePagesAsync(comicBook, startPageIndex, ".rar", cancellationToken);
-                return;
-            }
-
-            if (comicBook.Format == ComicFormat.SevenZip)
-            {
-                await PreloadCompressedArchivePagesAsync(comicBook, startPageIndex, ".7z", cancellationToken);
                 return;
             }
 
@@ -252,7 +233,6 @@ public sealed class LocalPagePreviewLoader :
         _pageCache.Clear();
         _renderCache.Clear();
         ArchiveImageEntryNames.Clear();
-        FolderImagePaths.Clear();
     }
 
     public void Dispose()
@@ -266,7 +246,6 @@ public sealed class LocalPagePreviewLoader :
         _pageLoads.Clear();
         _renderLoads.Clear();
         ArchiveImageEntryNames.Clear();
-        FolderImagePaths.Clear();
         _pageCache.Dispose();
         _renderCache.Dispose();
     }
@@ -286,9 +265,6 @@ public sealed class LocalPagePreviewLoader :
                 var page = comicBook.Format switch
                 {
                     ComicFormat.Cbz or ComicFormat.Zip => await LoadArchivePageAsync(comicBook.FilePath, pageIndex, cancellationToken),
-                    ComicFormat.Cbr or ComicFormat.Rar => await LoadCompressedArchivePageAsync(comicBook.FilePath, pageIndex, ".rar", cancellationToken),
-                    ComicFormat.SevenZip => await LoadCompressedArchivePageAsync(comicBook.FilePath, pageIndex, ".7z", cancellationToken),
-                    ComicFormat.ImageFolder => await LoadImageFolderPageAsync(comicBook.FilePath, pageIndex, cancellationToken),
                     ComicFormat.Pdf => await LoadPdfPageAsync(comicBook.FilePath, pageIndex, cancellationToken),
                     _ => null
                 };
@@ -310,7 +286,6 @@ public sealed class LocalPagePreviewLoader :
                 or UnauthorizedAccessException
                 or ArgumentException
                 or InvalidDataException
-                or InvalidFormatException
                 or InvalidOperationException
                 or NotSupportedException)
             {
@@ -463,96 +438,6 @@ public sealed class LocalPagePreviewLoader :
         }, cancellationToken);
     }
 
-    private async Task PreloadCompressedArchivePagesAsync(
-        ComicBook comicBook,
-        int startPageIndex,
-        string extensionHint,
-        CancellationToken cancellationToken)
-    {
-        await Task.Run(async () =>
-        {
-            try
-            {
-                var entryNames = GetCompressedArchiveImageEntryNames(comicBook.FilePath, extensionHint);
-                var cacheKeyPrefix = GetPageCacheKeyPrefix(comicBook);
-                using var archiveStream = extensionHint.Equals(".rar", StringComparison.OrdinalIgnoreCase)
-                    ? ComicArchiveStreamFactory.TryOpenRarArchiveStream(comicBook.FilePath)
-                    : ComicArchiveStreamFactory.TryOpenArchiveStream(comicBook.FilePath);
-                if (archiveStream is null)
-                {
-                    return;
-                }
-
-                using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
-                {
-                    LeaveStreamOpen = true,
-                    ExtensionHint = extensionHint
-                });
-
-                var entries = archive.Entries
-                    .Where(entry => !entry.IsDirectory && !string.IsNullOrWhiteSpace(entry.Key))
-                    .GroupBy(entry => entry.Key!, StringComparer.OrdinalIgnoreCase)
-                    .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
-
-                foreach (var pageIndex in BuildBackgroundPreloadOrder(comicBook.PageCount, startPageIndex))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    var cacheKey = GetPageCacheKey(cacheKeyPrefix, pageIndex);
-                    if (_pageCache.TryGet(cacheKey, out _))
-                    {
-                        continue;
-                    }
-
-                    var entryName = entryNames.ElementAtOrDefault(pageIndex);
-                    if (entryName is null || !entries.TryGetValue(entryName, out var entry))
-                    {
-                        continue;
-                    }
-
-                    await _decodeGate.WaitAsync(cancellationToken);
-                    try
-                    {
-                        if (_pageCache.TryGet(cacheKey, out _))
-                        {
-                            continue;
-                        }
-
-                        using var pageStream = new MemoryStream();
-                        entry.WriteTo(pageStream);
-                        pageStream.Position = 0;
-                        var page = await LoadBitmapAsync(pageStream, cancellationToken);
-                        if (page is null)
-                        {
-                            continue;
-                        }
-
-                        if (_isDisposed)
-                        {
-                            page.Dispose();
-                            return;
-                        }
-
-                        _pageCache.AddOrGet(cacheKey, page);
-                    }
-                    finally
-                    {
-                        _decodeGate.Release();
-                    }
-                }
-            }
-            catch (Exception exception) when (exception is IOException
-                or UnauthorizedAccessException
-                or ArgumentException
-                or InvalidDataException
-                or InvalidFormatException
-                or InvalidOperationException
-                or NotSupportedException)
-            {
-            }
-        }, cancellationToken);
-    }
-
     private static async Task<Bitmap?> LoadArchivePageAsync(string archivePath, int pageIndex, CancellationToken cancellationToken)
     {
         var entryName = GetArchiveImageEntryNames(archivePath).ElementAtOrDefault(pageIndex);
@@ -577,61 +462,6 @@ public sealed class LocalPagePreviewLoader :
 
         await using var entryStream = entry.Open();
         return await LoadBitmapAsync(entryStream, cancellationToken);
-    }
-
-    private static async Task<Bitmap?> LoadCompressedArchivePageAsync(
-        string archivePath,
-        int pageIndex,
-        string extensionHint,
-        CancellationToken cancellationToken)
-    {
-        var entryName = GetCompressedArchiveImageEntryNames(archivePath, extensionHint).ElementAtOrDefault(pageIndex);
-
-        if (entryName is null)
-        {
-            return null;
-        }
-
-        using var archiveStream = extensionHint.Equals(".rar", StringComparison.OrdinalIgnoreCase)
-            ? ComicArchiveStreamFactory.TryOpenRarArchiveStream(archivePath)
-            : ComicArchiveStreamFactory.TryOpenArchiveStream(archivePath);
-        if (archiveStream is null)
-        {
-            return null;
-        }
-
-        using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
-        {
-            LeaveStreamOpen = true,
-            ExtensionHint = extensionHint
-        });
-
-        var entry = archive.Entries.FirstOrDefault(item =>
-            !item.IsDirectory &&
-            item.Key is not null &&
-            item.Key.Equals(entryName, StringComparison.OrdinalIgnoreCase));
-        if (entry is null)
-        {
-            return null;
-        }
-
-        using var pageStream = new MemoryStream();
-        entry.WriteTo(pageStream);
-        pageStream.Position = 0;
-        return await LoadBitmapAsync(pageStream, cancellationToken);
-    }
-
-    private static async Task<Bitmap?> LoadImageFolderPageAsync(string folderPath, int pageIndex, CancellationToken cancellationToken)
-    {
-        var imagePath = GetFolderImagePaths(folderPath).ElementAtOrDefault(pageIndex);
-
-        if (imagePath is null)
-        {
-            return null;
-        }
-
-        await using var stream = File.OpenRead(imagePath);
-        return await LoadBitmapAsync(stream, cancellationToken);
     }
 
     private static Task<Bitmap?> LoadPdfPageAsync(string pdfPath, int pageIndex, CancellationToken cancellationToken)
@@ -696,60 +526,6 @@ public sealed class LocalPagePreviewLoader :
                 .Select(entry => entry.FullName)
                 .ToArray();
         });
-    }
-
-    private static string[] GetRarImageEntryNames(string archivePath)
-    {
-        return GetCompressedArchiveImageEntryNames(archivePath, ".rar");
-    }
-
-    private static string[] GetCompressedArchiveImageEntryNames(string archivePath, string extensionHint)
-    {
-        return ArchiveImageEntryNames.GetOrAdd(archivePath, path =>
-        {
-            try
-            {
-                using var archiveStream = extensionHint.Equals(".rar", StringComparison.OrdinalIgnoreCase)
-                    ? ComicArchiveStreamFactory.TryOpenRarArchiveStream(path)
-                    : ComicArchiveStreamFactory.TryOpenArchiveStream(path);
-                if (archiveStream is null)
-                {
-                    return [];
-                }
-
-                using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
-                {
-                    LeaveStreamOpen = true,
-                    ExtensionHint = extensionHint
-                });
-
-                return archive.Entries
-                    .Where(entry => !entry.IsDirectory
-                        && !string.IsNullOrWhiteSpace(entry.Key)
-                        && LocalComicLibraryScanner.IsImageFile(entry.Key))
-                    .Select(entry => entry.Key!)
-                    .Order(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-            }
-            catch (Exception exception) when (exception is IOException
-                or InvalidFormatException
-                or ArgumentException
-                or InvalidOperationException
-                or NotSupportedException
-                or InvalidDataException)
-            {
-                return [];
-            }
-        });
-    }
-
-    private static string[] GetFolderImagePaths(string folderPath)
-    {
-        return FolderImagePaths.GetOrAdd(folderPath, path =>
-            Directory.EnumerateFiles(path)
-                .Where(LocalComicLibraryScanner.IsImageFile)
-                .OrderBy(filePath => filePath, StringComparer.OrdinalIgnoreCase)
-                .ToArray());
     }
 
     private static IEnumerable<int> BuildPreloadOrder(int pageCount, int startPageIndex)

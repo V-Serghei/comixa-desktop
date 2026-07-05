@@ -1,5 +1,6 @@
 using Comixa.Core.Models;
 using Comixa.Reader.Archives;
+using System.Security.Cryptography;
 
 namespace Comixa.Reader.Scanning;
 
@@ -18,6 +19,8 @@ public sealed record ScannedComicFile(
 
         return new ComicBook(
             Guid.NewGuid(),
+            Guid.NewGuid().ToString("D"),
+            CreateContentFingerprint(FilePath),
             resolved.DisplayTitle,
             resolved.SeriesName,
             resolved.IssueNumber,
@@ -25,7 +28,26 @@ public sealed record ScannedComicFile(
             Format,
             PageCount,
             null,
-            addedAt);
+            addedAt,
+            addedAt,
+            null);
+    }
+
+    private static string CreateContentFingerprint(string filePath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(ComicArchiveLocator.GetPhysicalArchivePath(filePath));
+            var hash = SHA256.HashData(stream);
+            return $"sha256:{Convert.ToHexString(hash).ToLowerInvariant()}";
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or ArgumentException
+            or NotSupportedException)
+        {
+            return $"unavailable:{Guid.NewGuid():D}";
+        }
     }
 
     private static ParsedComicTitle ResolveTitle(ParsedComicTitle parsed, string filePath)

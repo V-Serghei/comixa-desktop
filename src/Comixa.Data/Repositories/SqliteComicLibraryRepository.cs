@@ -18,7 +18,7 @@ public sealed class SqliteComicLibraryRepository : IComicLibraryRepository
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT id, title, series_name, issue_number, file_path, format, page_count, cover_path, added_at " +
+            "SELECT id, sync_id, content_fingerprint, title, series_name, issue_number, file_path, format, page_count, cover_path, added_at, updated_at, deleted_at " +
             "FROM comics ORDER BY title ASC";
 
         var books = new List<ComicBook>();
@@ -34,7 +34,7 @@ public sealed class SqliteComicLibraryRepository : IComicLibraryRepository
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT id, title, series_name, issue_number, file_path, format, page_count, cover_path, added_at " +
+            "SELECT id, sync_id, content_fingerprint, title, series_name, issue_number, file_path, format, page_count, cover_path, added_at, updated_at, deleted_at " +
             "FROM comics WHERE id = @id";
         command.Parameters.AddWithValue("@id", id.ToString());
 
@@ -50,21 +50,27 @@ public sealed class SqliteComicLibraryRepository : IComicLibraryRepository
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO comics (id, title, series_name, issue_number, file_path, format, page_count, cover_path, added_at)
-            VALUES (@id, @title, @series_name, @issue_number, @file_path, @format, @page_count, @cover_path, @added_at)
+            INSERT INTO comics (id, sync_id, content_fingerprint, title, series_name, issue_number, file_path, format, page_count, cover_path, added_at, updated_at, deleted_at)
+            VALUES (@id, @sync_id, @content_fingerprint, @title, @series_name, @issue_number, @file_path, @format, @page_count, @cover_path, @added_at, @updated_at, @deleted_at)
             ON CONFLICT(file_path) DO UPDATE SET
-                title        = excluded.title,
-                series_name  = excluded.series_name,
-                issue_number = excluded.issue_number,
-                format       = excluded.format,
-                page_count   = CASE
+                sync_id             = excluded.sync_id,
+                content_fingerprint = excluded.content_fingerprint,
+                title               = excluded.title,
+                series_name         = excluded.series_name,
+                issue_number        = excluded.issue_number,
+                format              = excluded.format,
+                page_count          = CASE
                     WHEN excluded.page_count > 0 THEN excluded.page_count
                     ELSE comics.page_count
                 END,
-                cover_path   = excluded.cover_path
+                cover_path          = excluded.cover_path,
+                updated_at          = excluded.updated_at,
+                deleted_at          = excluded.deleted_at
             """;
 
         command.Parameters.AddWithValue("@id", comicBook.Id.ToString());
+        command.Parameters.AddWithValue("@sync_id", comicBook.SyncId);
+        command.Parameters.AddWithValue("@content_fingerprint", comicBook.ContentFingerprint);
         command.Parameters.AddWithValue("@title", comicBook.Title);
         command.Parameters.AddWithValue("@series_name", (object?)comicBook.SeriesName ?? DBNull.Value);
         command.Parameters.AddWithValue("@issue_number", (object?)comicBook.IssueNumber ?? DBNull.Value);
@@ -73,6 +79,8 @@ public sealed class SqliteComicLibraryRepository : IComicLibraryRepository
         command.Parameters.AddWithValue("@page_count", comicBook.PageCount);
         command.Parameters.AddWithValue("@cover_path", (object?)comicBook.CoverPath ?? DBNull.Value);
         command.Parameters.AddWithValue("@added_at", comicBook.AddedAt.ToString("O"));
+        command.Parameters.AddWithValue("@updated_at", comicBook.UpdatedAt.ToString("O"));
+        command.Parameters.AddWithValue("@deleted_at", comicBook.DeletedAt?.ToString("O") ?? (object)DBNull.Value);
 
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -90,11 +98,15 @@ public sealed class SqliteComicLibraryRepository : IComicLibraryRepository
         new(
             Guid.Parse(reader.GetString(0)),
             reader.GetString(1),
-            reader.IsDBNull(2) ? null : reader.GetString(2),
-            reader.IsDBNull(3) ? null : reader.GetInt32(3),
-            reader.GetString(4),
-            (ComicFormat)reader.GetInt32(5),
-            reader.GetInt32(6),
-            reader.IsDBNull(7) ? null : reader.GetString(7),
-            DateTimeOffset.Parse(reader.GetString(8)));
+            reader.GetString(2),
+            reader.GetString(3),
+            reader.IsDBNull(4) ? null : reader.GetString(4),
+            reader.IsDBNull(5) ? null : reader.GetInt32(5),
+            reader.GetString(6),
+            (ComicFormat)reader.GetInt32(7),
+            reader.GetInt32(8),
+            reader.IsDBNull(9) ? null : reader.GetString(9),
+            DateTimeOffset.Parse(reader.GetString(10)),
+            DateTimeOffset.Parse(reader.GetString(11)),
+            reader.IsDBNull(12) ? null : DateTimeOffset.Parse(reader.GetString(12)));
 }

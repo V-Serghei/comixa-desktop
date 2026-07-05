@@ -18,7 +18,7 @@ public sealed class SqliteBookmarkRepository : IBookmarkRepository
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT id, comic_book_id, page_number, note, created_at FROM bookmarks WHERE comic_book_id = @id ORDER BY page_number";
+            "SELECT id, sync_id, comic_book_id, comic_sync_id, page_index, note, created_at, updated_at, deleted_at FROM bookmarks WHERE comic_book_id = @id ORDER BY page_index";
         command.Parameters.AddWithValue("@id", comicBookId.ToString());
 
         var result = new List<Bookmark>();
@@ -34,14 +34,18 @@ public sealed class SqliteBookmarkRepository : IBookmarkRepository
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT OR IGNORE INTO bookmarks (id, comic_book_id, page_number, note, created_at)
-            VALUES (@id, @comic_id, @page, @note, @created_at)
+            INSERT OR IGNORE INTO bookmarks (id, sync_id, comic_book_id, comic_sync_id, page_index, note, created_at, updated_at, deleted_at)
+            VALUES (@id, @sync_id, @comic_id, @comic_sync_id, @page_index, @note, @created_at, @updated_at, @deleted_at)
             """;
         command.Parameters.AddWithValue("@id", bookmark.Id.ToString());
+        command.Parameters.AddWithValue("@sync_id", bookmark.SyncId);
         command.Parameters.AddWithValue("@comic_id", bookmark.ComicBookId.ToString());
-        command.Parameters.AddWithValue("@page", bookmark.PageNumber);
+        command.Parameters.AddWithValue("@comic_sync_id", bookmark.ComicSyncId);
+        command.Parameters.AddWithValue("@page_index", bookmark.PageIndex);
         command.Parameters.AddWithValue("@note", (object?)bookmark.Note ?? DBNull.Value);
         command.Parameters.AddWithValue("@created_at", bookmark.CreatedAt.ToString("O"));
+        command.Parameters.AddWithValue("@updated_at", bookmark.UpdatedAt.ToString("O"));
+        command.Parameters.AddWithValue("@deleted_at", bookmark.DeletedAt?.ToString("O") ?? (object)DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -54,21 +58,25 @@ public sealed class SqliteBookmarkRepository : IBookmarkRepository
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task DeleteForPageAsync(Guid comicBookId, int pageNumber, CancellationToken cancellationToken = default)
+    public async Task DeleteForPageAsync(Guid comicBookId, int pageIndex, CancellationToken cancellationToken = default)
     {
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM bookmarks WHERE comic_book_id = @comic_id AND page_number = @page";
+        command.CommandText = "DELETE FROM bookmarks WHERE comic_book_id = @comic_id AND page_index = @page";
         command.Parameters.AddWithValue("@comic_id", comicBookId.ToString());
-        command.Parameters.AddWithValue("@page", pageNumber);
+        command.Parameters.AddWithValue("@page", pageIndex);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static Bookmark ReadBookmark(SqliteDataReader reader) =>
         new(
             Guid.Parse(reader.GetString(0)),
-            Guid.Parse(reader.GetString(1)),
-            reader.GetInt32(2),
-            reader.IsDBNull(3) ? null : reader.GetString(3),
-            DateTimeOffset.Parse(reader.GetString(4)));
+            reader.GetString(1),
+            Guid.Parse(reader.GetString(2)),
+            reader.GetString(3),
+            reader.GetInt32(4),
+            reader.IsDBNull(5) ? null : reader.GetString(5),
+            DateTimeOffset.Parse(reader.GetString(6)),
+            DateTimeOffset.Parse(reader.GetString(7)),
+            reader.IsDBNull(8) ? null : DateTimeOffset.Parse(reader.GetString(8)));
 }

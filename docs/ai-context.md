@@ -8,7 +8,7 @@ MVP 1 - Local Desktop Reader Core.
 
 ## Architectural Preferences
 
-- C# and .NET 10.
+- C# and .NET 8 LTS.
 - Avalonia UI for cross-platform desktop UI.
 - MVVM for presentation logic.
 - SQLite for local persistence.
@@ -26,9 +26,9 @@ Avoid Windows-only APIs in shared code. If platform-specific integration becomes
 - `Comixa.Reader` contains scanning/title parsing and reader abstractions.
 - `Comixa.Sync` remains contracts only.
 
-The app currently has local folder scanning, CBZ/ZIP reading, PDF reading through PDFtoImage/PDFium, image-folder detection, SQLite persistence, library search/sort, status views, folder views, series grouping/detail, shelves, bookmarks, reading progress, cover thumbnail caching, reader settings, fullscreen mode, hide/show reader preview, zoom/fit modes, page navigation, virtualized library rows, lazy vertical-reader pages, full-size and render-size page caches, page cache/prefetch, and next-part prompts for series.
+The app currently has local folder scanning for CBZ/ZIP/PDF, CBZ/ZIP reading, PDF reading through PDFtoImage/PDFium, SQLite persistence, library search/sort, status views, folder views, series grouping/detail, shelves, bookmarks, reading progress, cover thumbnail caching, reader settings, fullscreen mode, hide/show reader preview, zoom/fit modes, page navigation, virtualized library rows, lazy vertical-reader pages, full-size and render-size page caches, page cache/prefetch, and next-part prompts for series.
 
-CBR/RAR/7z/EPUB should remain unsupported placeholders until intentionally scoped.
+CBR/RAR, 7z/CB7, EPUB, nested archives, and loose image folders are not MVP behavior and must not be presented as supported formats.
 
 ## Current UX/Performance Notes
 
@@ -45,10 +45,10 @@ CBR/RAR/7z/EPUB should remain unsupported placeholders until intentionally scope
 1. Have the user build/run and report any compile/runtime failures.
 2. Fix reported build/runtime issues before adding more features.
 3. Manually QA the main flows: add folder, folder/status/series views, cover cache, open reader, page turn, fullscreen, hide/show reader, settings persistence, next-part prompt.
-4. Manually stress-test large CBZ/ZIP/image-folder/PDF books and tune cache sizes from observed behavior.
+4. Manually stress-test large CBZ/ZIP/PDF books and tune cache sizes from observed behavior.
 5. Improve responsive layout for the virtualized library rows.
 6. Add viewport-aware render target sizing for horizontal fit modes.
 
 ## Boundaries
 
-Do not add fake cloud, network sync, OCR, AI translation, SMB/WebDAV, or CBR/RAR support. Do not add feature flags or backwards compatibility shims. Keep the starter code small and production-oriented.
+Do not add fake cloud, network sync, OCR, AI translation, SMB/WebDAV, CBR/RAR, 7z/CB7, EPUB, nested archive, or loose image folder support. Do not add feature flags or backwards compatibility shims. Keep the starter code small and production-oriented.

@@ -32,11 +32,11 @@ public sealed class LocalComicLibraryScannerTests
 
             var files = await scanner.ScanAsync(root);
 
-            Assert.Equal(4, files.Count);
+            Assert.Equal(3, files.Count);
             Assert.Contains(files, file => file.Format == ComicFormat.Cbz && file.PageCount == 3);
             Assert.Contains(files, file => file.Format == ComicFormat.Zip && file.PageCount == 1);
             Assert.Contains(files, file => file.Format == ComicFormat.Pdf && file.PageCount == 0);
-            Assert.Contains(files, file => file.Format == ComicFormat.ImageFolder && file.PageCount == 2);
+            Assert.DoesNotContain(files, file => file.FilePath == imageFolderPath);
             Assert.DoesNotContain(files, file => file.FileName == "backup.zip");
         }
         finally
@@ -144,7 +144,7 @@ public sealed class LocalComicLibraryScannerTests
     }
 
     [Fact]
-    public async Task ScanAsyncKeepsZipBundlesWithNestedComicArchivesVisible()
+    public async Task ScanAsyncIgnoresZipBundlesWithOnlyNestedComicArchives()
     {
         var root = CreateTemporaryFolder();
 
@@ -155,14 +155,7 @@ public sealed class LocalComicLibraryScannerTests
 
             var scanner = new LocalComicLibraryScanner();
 
-            var file = Assert.Single(await scanner.ScanAsync(root));
-            var book = file.ToComicBook(DateTimeOffset.UtcNow);
-
-            Assert.Equal(ComicFormat.Zip, file.Format);
-            Assert.Equal(0, file.PageCount);
-            Assert.Equal("Brightest Day Aftermath The Search #1-3", book.Title);
-            Assert.Equal("Brightest Day Aftermath The Search", book.SeriesName);
-            Assert.Equal(1, book.IssueNumber);
+            Assert.Empty(await scanner.ScanAsync(root));
         }
         finally
         {
@@ -171,23 +164,21 @@ public sealed class LocalComicLibraryScannerTests
     }
 
     [Fact]
-    public async Task ScanAsyncUsesOuterBundleSeriesForGenericNestedChapterNames()
+    public async Task ScanAsyncIgnoresCbrRarSevenZipAndEpubFiles()
     {
         var root = CreateTemporaryFolder();
 
         try
         {
-            var bundlePath = Path.Join(root, "Brightest Day Aftermath - The Search 01-03 (2011).zip");
-            CreateZip(bundlePath, "001.cbr");
+            File.WriteAllText(Path.Join(root, "chapter.cbr"), "rar");
+            File.WriteAllText(Path.Join(root, "chapter.rar"), "rar");
+            File.WriteAllText(Path.Join(root, "chapter.7z"), "7z");
+            File.WriteAllText(Path.Join(root, "chapter.cb7"), "7z");
+            File.WriteAllText(Path.Join(root, "book.epub"), "epub");
 
             var scanner = new LocalComicLibraryScanner();
 
-            var file = Assert.Single(await scanner.ScanAsync(root));
-            var book = file.ToComicBook(DateTimeOffset.UtcNow);
-
-            Assert.Equal("Brightest Day Aftermath The Search #1", book.Title);
-            Assert.Equal("Brightest Day Aftermath The Search", book.SeriesName);
-            Assert.Equal(1, book.IssueNumber);
+            Assert.Empty(await scanner.ScanAsync(root));
         }
         finally
         {

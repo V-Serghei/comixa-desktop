@@ -1,28 +1,41 @@
 # Architecture
 
-Comixa Desktop uses a small layered architecture built around .NET 10 and Avalonia.
+Comixa Desktop uses a small layered architecture built around .NET 8 LTS and Avalonia. The desktop app is Windows-first, while shared code should remain friendly to Linux and macOS.
 
 ## Projects
 
-- `Comixa.Desktop`: Avalonia UI app, views, view models, and desktop composition.
-- `Comixa.Core`: domain models and shared repository abstractions.
-- `Comixa.Data`: SQLite data access and repository implementations.
-- `Comixa.Reader`: comic archive reader abstractions and future page rendering pipeline.
-- `Comixa.Sync`: sync DTOs/contracts only; no network sync implementation.
+- `Comixa.Desktop`: Avalonia UI app, views, view models, local settings, cover cache, and page preview loading.
+- `Comixa.Core`: domain models and repository abstractions.
+- `Comixa.Data`: SQLite schema and repository implementations.
+- `Comixa.Reader`: local file scanning, title parsing, archive/page abstractions, and reader-oriented logic that has no Avalonia dependency.
+- `Comixa.Sync`: shared DTO/contracts for future Android/Desktop sync alignment only.
 
-## Rules
+## Boundaries
 
-- UI code stays in `Comixa.Desktop`.
-- Domain types and interfaces stay framework-neutral.
-- Data access depends on core abstractions.
-- Reader code depends on core models but not the desktop UI.
-- Platform-specific APIs must be hidden behind interfaces.
-- Filesystem paths must be handled with platform-neutral .NET APIs.
+- Avalonia UI belongs only in `Comixa.Desktop`.
+- Domain models belong in `Comixa.Core`.
+- SQLite belongs in `Comixa.Data`.
+- Reader/scanning code belongs in `Comixa.Reader`.
+- Sync contracts belong in `Comixa.Sync`.
+- Shared projects must not depend on Windows-only APIs.
+- Filesystem paths are local-only and must use platform-neutral `System.IO` APIs.
+
+## MVP Format Boundary
+
+Official MVP formats are `CBZ`, `ZIP`, and `PDF`. CBR/RAR, 7z/CB7, EPUB, nested archives, and loose image folders are not MVP behavior.
 
 ## Persistence
 
-SQLite is the intended local database. Repository interfaces live in `Comixa.Core`; implementations belong in `Comixa.Data`.
+SQLite is the local persistence boundary. Repository interfaces live in `Comixa.Core`; implementations live in `Comixa.Data`.
+
+Sync-ready fields such as `SyncId`, `ContentFingerprint`, `UpdatedAt`, and nullable delete timestamps can exist locally before network sync exists. They must not imply cloud services, fake remote state, or conflict resolution.
+
+## Sync
+
+`Comixa.Sync` is contracts-only. The current sync contract is documented in `docs/sync-contract-v0.md`.
+
+There is no network sync implementation, no cloud service, no background sync job, and no conflict resolution engine in MVP 1.
 
 ## UI
 
-Avalonia views should bind to view models. Keep view models testable and avoid placing persistence or archive parsing directly in views.
+Avalonia views bind to view models. View models should coordinate repositories and reader services but should not contain archive parsing implementation details.

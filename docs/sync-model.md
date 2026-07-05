@@ -2,7 +2,9 @@
 
 Comixa Desktop is local-first. MVP 1 has no network sync implementation.
 
-`Comixa.Sync` exists only to hold future-facing contracts and DTOs so domain concepts can be named without pretending sync exists today.
+`Comixa.Sync` exists only to hold future-facing contracts and DTOs so Android and Desktop can share names without pretending sync exists today.
+
+The current shared contract is `docs/sync-contract-v0.md`.
 
 ## Current Rules
 

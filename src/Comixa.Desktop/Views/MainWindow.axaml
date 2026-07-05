@@ -5,6 +5,7 @@
         x:Class="Comixa.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         x:CompileBindings="False"
+        Icon="/Assets/comixa.ico"
         Title="{Binding Title}"
         Width="1360"
         Height="840"

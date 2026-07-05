@@ -18,7 +18,7 @@ public sealed class SqliteReadingProgressRepository : IReadingProgressRepository
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT comic_book_id, page_number, updated_at FROM reading_progress WHERE comic_book_id = @id";
+            "SELECT comic_book_id, comic_sync_id, page_index, total_pages, status, updated_at FROM reading_progress WHERE comic_book_id = @id";
         command.Parameters.AddWithValue("@id", comicBookId.ToString());
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -33,14 +33,20 @@ public sealed class SqliteReadingProgressRepository : IReadingProgressRepository
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO reading_progress (comic_book_id, page_number, updated_at)
-            VALUES (@id, @page, @updated_at)
+            INSERT INTO reading_progress (comic_book_id, comic_sync_id, page_index, total_pages, status, updated_at)
+            VALUES (@id, @comic_sync_id, @page_index, @total_pages, @status, @updated_at)
             ON CONFLICT(comic_book_id) DO UPDATE SET
-                page_number = excluded.page_number,
-                updated_at  = excluded.updated_at
+                comic_sync_id = excluded.comic_sync_id,
+                page_index    = excluded.page_index,
+                total_pages   = excluded.total_pages,
+                status        = excluded.status,
+                updated_at    = excluded.updated_at
             """;
         command.Parameters.AddWithValue("@id", progress.ComicBookId.ToString());
-        command.Parameters.AddWithValue("@page", progress.PageNumber);
+        command.Parameters.AddWithValue("@comic_sync_id", progress.ComicSyncId);
+        command.Parameters.AddWithValue("@page_index", progress.PageIndex);
+        command.Parameters.AddWithValue("@total_pages", progress.TotalPages);
+        command.Parameters.AddWithValue("@status", (int)progress.Status);
         command.Parameters.AddWithValue("@updated_at", progress.UpdatedAt.ToString("O"));
 
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -50,7 +56,7 @@ public sealed class SqliteReadingProgressRepository : IReadingProgressRepository
     {
         using var connection = _database.OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT comic_book_id, page_number, updated_at FROM reading_progress";
+        command.CommandText = "SELECT comic_book_id, comic_sync_id, page_index, total_pages, status, updated_at FROM reading_progress";
 
         var result = new List<ReadingProgress>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -72,6 +78,9 @@ public sealed class SqliteReadingProgressRepository : IReadingProgressRepository
     private static ReadingProgress ReadProgress(SqliteDataReader reader) =>
         new(
             Guid.Parse(reader.GetString(0)),
-            reader.GetInt32(1),
-            DateTimeOffset.Parse(reader.GetString(2)));
+            reader.GetString(1),
+            reader.GetInt32(2),
+            reader.GetInt32(3),
+            (ReadingStatus)reader.GetInt32(4),
+            DateTimeOffset.Parse(reader.GetString(5)));
 }

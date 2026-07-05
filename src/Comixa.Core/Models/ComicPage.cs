@@ -2,6 +2,6 @@ namespace Comixa.Core.Models;
 
 public sealed record ComicPage(
     Guid ComicBookId,
-    int PageNumber,
+    int PageIndex,
     string EntryName,
     long SizeBytes);

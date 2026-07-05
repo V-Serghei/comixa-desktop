@@ -6,9 +6,6 @@ using Comixa.Core.Models;
 using Comixa.Reader.Archives;
 using Comixa.Reader.Scanning;
 using ImageMagick;
-using SharpCompress.Archives;
-using SharpCompress.Common;
-using SharpCompress.Readers;
 
 namespace Comixa.Desktop.Reader;
 
@@ -127,16 +124,12 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
             return comicBook.Format switch
             {
                 ComicFormat.Cbz or ComicFormat.Zip => await TryCreateArchiveThumbnailAsync(comicBook.FilePath, cancellationToken),
-                ComicFormat.Cbr or ComicFormat.Rar => await TryCreateCompressedArchiveThumbnailAsync(comicBook.FilePath, ".rar", cancellationToken),
-                ComicFormat.SevenZip => await TryCreateCompressedArchiveThumbnailAsync(comicBook.FilePath, ".7z", cancellationToken),
-                ComicFormat.ImageFolder => await TryCreateImageFolderThumbnailAsync(comicBook.FilePath, cancellationToken),
                 _ => null
             };
         }
         catch (Exception exception) when (exception is IOException
             or UnauthorizedAccessException
             or InvalidDataException
-            or InvalidFormatException
             or ArgumentException
             or InvalidOperationException
             or NotSupportedException
@@ -167,60 +160,6 @@ public sealed class AvaloniaCoverImageCache : ICoverImageCache, IDisposable
 
         await using var entryStream = entry.Open();
         return await CreateMagickThumbnailAsync(entryStream, cancellationToken);
-    }
-
-    private static async Task<Bitmap?> TryCreateCompressedArchiveThumbnailAsync(
-        string archivePath,
-        string extensionHint,
-        CancellationToken cancellationToken)
-    {
-        using var archiveStream = extensionHint.Equals(".rar", StringComparison.OrdinalIgnoreCase)
-            ? ComicArchiveStreamFactory.TryOpenRarArchiveStream(archivePath)
-            : ComicArchiveStreamFactory.TryOpenArchiveStream(archivePath);
-        if (archiveStream is null)
-        {
-            return null;
-        }
-
-        using var archive = ArchiveFactory.OpenArchive(archiveStream, new ReaderOptions
-        {
-            LeaveStreamOpen = true,
-            ExtensionHint = extensionHint
-        });
-
-        var entry = archive.Entries
-            .Where(item => !item.IsDirectory
-                && !string.IsNullOrWhiteSpace(item.Key)
-                && LocalComicLibraryScanner.IsImageFile(item.Key))
-            .OrderBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
-
-        if (entry is null)
-        {
-            return null;
-        }
-
-        using var imageStream = new MemoryStream();
-        entry.WriteTo(imageStream);
-        imageStream.Position = 0;
-        return await CreateMagickThumbnailAsync(imageStream, cancellationToken);
-    }
-
-    private static async Task<Bitmap?> TryCreateImageFolderThumbnailAsync(string folderPath, CancellationToken cancellationToken)
-    {
-        var imagePath = Directory
-            .EnumerateFiles(folderPath)
-            .Where(LocalComicLibraryScanner.IsImageFile)
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
-
-        if (imagePath is null)
-        {
-            return null;
-        }
-
-        await using var stream = File.OpenRead(imagePath);
-        return await CreateMagickThumbnailAsync(stream, cancellationToken);
     }
 
     private static async Task<Bitmap?> CreateMagickThumbnailAsync(Stream source, CancellationToken cancellationToken)

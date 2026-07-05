@@ -12,6 +12,8 @@ public sealed class ComicBookTests
 
         var comicBook = new ComicBook(
             id,
+            "comic-sync-id",
+            "sha256:abc123",
             "A Quiet Chapter",
             "A Quiet Chapter",
             3,
@@ -19,9 +21,13 @@ public sealed class ComicBookTests
             ComicFormat.Cbz,
             42,
             null,
-            addedAt);
+            addedAt,
+            addedAt,
+            null);
 
         Assert.Equal(id, comicBook.Id);
+        Assert.Equal("comic-sync-id", comicBook.SyncId);
+        Assert.Equal("sha256:abc123", comicBook.ContentFingerprint);
         Assert.Equal("A Quiet Chapter", comicBook.Title);
         Assert.Equal("A Quiet Chapter", comicBook.SeriesName);
         Assert.Equal(3, comicBook.IssueNumber);
@@ -29,5 +35,7 @@ public sealed class ComicBookTests
         Assert.Equal(42, comicBook.PageCount);
         Assert.Null(comicBook.CoverPath);
         Assert.Equal(addedAt, comicBook.AddedAt);
+        Assert.Equal(addedAt, comicBook.UpdatedAt);
+        Assert.Null(comicBook.DeletedAt);
     }
 }

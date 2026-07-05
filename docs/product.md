@@ -28,6 +28,10 @@ MVP 1 focuses on the Local Desktop Reader Core:
 - Cloud sources
 - SMB or WebDAV
 - CBR/RAR
+- 7z/CB7
+- EPUB
+- nested archives
+- loose image folders
 - OCR
 - AI translation
 - Network sync

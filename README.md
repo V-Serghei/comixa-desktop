@@ -6,7 +6,7 @@ Comixa Desktop is the desktop companion app for Comixa, an original local-first 
 
 MVP 1 - Local Desktop Reader Core
 
-The first milestone prepares the architecture for a local comic library, local archive reading, reading progress, bookmarks, and a desktop reader experience.
+The first milestone prepares the architecture for a local comic library, supported local reading formats, reading progress, bookmarks, and a desktop reader experience. It also keeps a clean shared data contract for future Android/Desktop sync without implementing network sync.
 
 ## Platforms
 
@@ -14,7 +14,7 @@ Comixa Desktop starts Windows-first, while the architecture must stay friendly t
 
 ## Tech Stack
 
-- C# and .NET 10
+- C# and .NET 8 LTS
 - Avalonia UI
 - MVVM
 - SQLite
@@ -25,7 +25,7 @@ Comixa Desktop starts Windows-first, while the architecture must stay friendly t
 ## Planned MVP 1 Features
 
 - Local folder selection and file scanning
-- CBZ/ZIP/PDF reading
+- CBZ/ZIP/PDF reading only
 - Library screen with covers
 - Reader screen with page navigation
 - Zoom and fit modes
@@ -39,6 +39,10 @@ Comixa Desktop starts Windows-first, while the architecture must stay friendly t
 - Cloud sources
 - SMB or WebDAV
 - CBR/RAR
+- 7z/CB7
+- EPUB
+- Nested archives
+- Loose image folders
 - OCR
 - AI translation
 - Network sync
@@ -53,7 +57,7 @@ dotnet run --project src/Comixa.Desktop/Comixa.Desktop.csproj
 dotnet format
 ```
 
-The repository includes `global.json` to pin development to .NET 10.
+The repository includes `global.json` to pin development to .NET 8 LTS.
 
 ## Repository Structure
 
@@ -73,7 +77,7 @@ tests/
 docs/
   product.md
   architecture.md
-  sync-model.md
+  sync-contract-v0.md
   supported-formats.md
   roadmap.md
   git-flow.md

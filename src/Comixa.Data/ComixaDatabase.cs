@@ -29,29 +29,40 @@ public sealed class ComixaDatabase
         using var command = connection.CreateCommand();
         command.CommandText = """
             CREATE TABLE IF NOT EXISTS comics (
-                id           TEXT NOT NULL PRIMARY KEY,
-                title        TEXT NOT NULL,
-                series_name  TEXT,
-                issue_number INTEGER,
-                file_path    TEXT NOT NULL UNIQUE,
-                format       INTEGER NOT NULL,
-                page_count   INTEGER NOT NULL DEFAULT 0,
-                cover_path   TEXT,
-                added_at     TEXT NOT NULL
+                id                  TEXT NOT NULL PRIMARY KEY,
+                sync_id             TEXT NOT NULL UNIQUE,
+                content_fingerprint TEXT NOT NULL,
+                title               TEXT NOT NULL,
+                series_name         TEXT,
+                issue_number        INTEGER,
+                file_path           TEXT NOT NULL UNIQUE,
+                format              INTEGER NOT NULL,
+                page_count          INTEGER NOT NULL DEFAULT 0,
+                cover_path          TEXT,
+                added_at            TEXT NOT NULL,
+                updated_at          TEXT NOT NULL,
+                deleted_at          TEXT
             );
 
             CREATE TABLE IF NOT EXISTS reading_progress (
                 comic_book_id TEXT NOT NULL PRIMARY KEY,
-                page_number   INTEGER NOT NULL,
+                comic_sync_id TEXT NOT NULL,
+                page_index    INTEGER NOT NULL,
+                total_pages   INTEGER NOT NULL,
+                status        INTEGER NOT NULL,
                 updated_at    TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS bookmarks (
                 id            TEXT NOT NULL PRIMARY KEY,
+                sync_id       TEXT NOT NULL UNIQUE,
                 comic_book_id TEXT NOT NULL,
-                page_number   INTEGER NOT NULL,
+                comic_sync_id TEXT NOT NULL,
+                page_index    INTEGER NOT NULL,
                 note          TEXT,
-                created_at    TEXT NOT NULL
+                created_at    TEXT NOT NULL,
+                updated_at    TEXT NOT NULL,
+                deleted_at    TEXT
             );
 
             CREATE TABLE IF NOT EXISTS shelves (

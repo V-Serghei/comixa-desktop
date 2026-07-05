@@ -43,11 +43,11 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
 
     public double ProgressValue => _progress is null || ComicBook.PageCount == 0
         ? 0.0
-        : (double)(_progress.PageNumber + 1) / ComicBook.PageCount;
+        : (double)(_progress.PageIndex + 1) / ComicBook.PageCount;
 
     public bool HasProgress => _progress is not null;
 
-    public bool IsRead => _progress is not null && PageCount > 0 && _progress.PageNumber >= PageCount - 1;
+    public bool IsRead => _progress is not null && PageCount > 0 && _progress.PageIndex >= PageCount - 1;
 
     public bool IsStarted => _progress is not null && !IsRead;
 
@@ -71,17 +71,16 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
         get
         {
             if (_progress is null) return "";
-            if (_progress.PageNumber == 0) return "Started";
-            if (PageCount > 0 && _progress.PageNumber >= PageCount - 1) return "Read";
-            return $"Page {_progress.PageNumber + 1} of {PageCount}";
+            if (_progress.PageIndex == 0) return "Started";
+            if (PageCount > 0 && _progress.PageIndex >= PageCount - 1) return "Read";
+            return $"Page {_progress.PageIndex + 1} of {PageCount}";
         }
     }
 
     private string PageLabel => PageCount == 0
         ? Format switch
         {
-            "SEVENZIP" or "EPUB" => "unsupported",
-            "CBR" or "RAR" or "ZIP" => "no readable pages",
+            "ZIP" => "no readable pages",
             _ => "? pages"
         }
         : $"{PageCount} pages";
@@ -165,7 +164,7 @@ public sealed class ComicBookListItemViewModel : ViewModelBase
 
     private static bool ShouldPreferParentFolder(ComicBook comicBook)
     {
-        if (string.IsNullOrWhiteSpace(comicBook.SeriesName))
+        if (string.IsNullOrWhiteSpace(comicBook.SeriesName) || comicBook.IssueNumber is null)
         {
             return true;
         }

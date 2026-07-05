@@ -206,8 +206,6 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         ToggleCbzFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Cbz));
         ToggleZipFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Zip));
         TogglePdfFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Pdf));
-        ToggleCbrFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.Cbr));
-        ToggleSevenZipFilterCommand = new RelayCommand(() => ToggleFormatFilter(ComicFormat.SevenZip));
         SetReadingDirectionCommand = new RelayCommand<string>(SetReadingDirection);
         ToggleThemeCommand = new RelayCommand(ToggleTheme);
         ClearSearchCommand = new RelayCommand(() => SearchQuery = "");
@@ -291,8 +289,6 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public RelayCommand ToggleCbzFilterCommand { get; }
     public RelayCommand ToggleZipFilterCommand { get; }
     public RelayCommand TogglePdfFilterCommand { get; }
-    public RelayCommand ToggleCbrFilterCommand { get; }
-    public RelayCommand ToggleSevenZipFilterCommand { get; }
     public RelayCommand ClearSearchCommand { get; }
     public RelayCommand ToggleFolderDisplayModeCommand { get; }
     public RelayCommand ToggleShelfDisplayModeCommand { get; }
@@ -435,8 +431,6 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     public bool IsCbzFilterActive => _formatFilter == ComicFormat.Cbz;
     public bool IsZipFilterActive => _formatFilter == ComicFormat.Zip;
     public bool IsPdfFilterActive => _formatFilter == ComicFormat.Pdf;
-    public bool IsCbrFilterActive => _formatFilter == ComicFormat.Cbr;
-    public bool IsSevenZipFilterActive => _formatFilter == ComicFormat.SevenZip;
     public bool IsSortTitleAsc => _sortOrder == SortOrder.TitleAsc;
     public bool IsSortTitleDesc => _sortOrder == SortOrder.TitleDesc;
     public bool IsSortRecentlyAdded => _sortOrder == SortOrder.RecentlyAdded;
@@ -664,7 +658,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     // Bookmarks
     public bool IsCurrentPageBookmarked =>
-        _currentBookBookmarks.Any(b => b.PageNumber == _currentPageIndex);
+        _currentBookBookmarks.Any(b => b.PageIndex == _currentPageIndex);
 
     public string BookmarkIcon => IsCurrentPageBookmarked ? "Bookmarked" : "Bookmark";
 
@@ -689,7 +683,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             return 0;
         }
 
-        var pageNumber = Math.Clamp(progress.PageNumber, 0, pageCount);
+        var pageNumber = Math.Clamp(progress.PageIndex, 0, pageCount);
         return pageCount > 0 && pageNumber >= pageCount ? 0 : pageNumber;
     }
 
@@ -823,13 +817,12 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         var recentItems = _allBooks
             .Select(book =>
             {
-                var hasProgress = _progressMap.TryGetValue(book.ComicBook.Id, out var progress);
-                var createdAt = hasProgress ? progress.UpdatedAt : book.ComicBook.AddedAt;
-                var detail = hasProgress
-                    ? (book.IsRead ? "Read" : "Started")
-                    : "Added";
+                if (_progressMap.TryGetValue(book.ComicBook.Id, out var progress))
+                {
+                    return new ActivityItemViewModel(book.Title, book.IsRead ? "Read" : "Started", progress.UpdatedAt);
+                }
 
-                return new ActivityItemViewModel(book.Title, detail, createdAt);
+                return new ActivityItemViewModel(book.Title, "Added", book.ComicBook.AddedAt);
             })
             .OrderByDescending(item => item.CreatedAt)
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
@@ -952,7 +945,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         {
             await LoadLibraryFromDatabaseAsync(_allBooks.Count > 0
                 ? $"{_allBooks.Count} saved comics shown. Scan found no readable files."
-                : "No CBZ, ZIP, PDF, CBR, RAR, 7Z or image folders found.");
+                : "No CBZ, ZIP, or PDF comics found.");
             return;
         }
 
@@ -1009,7 +1002,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         _isLoadingLibrary = false;
         StatusMessage = statusMessage ?? (_allBooks.Count > 0
             ? $"{_allBooks.Count} comic{(_allBooks.Count == 1 ? "" : "s")} in library"
-            : "No CBZ, ZIP, PDF, CBR, RAR, 7Z or image folders found.");
+            : "No CBZ, ZIP, or PDF comics found.");
 
         RaisePropertyChanged(nameof(IsLibraryEmpty));
         RaisePropertyChanged(nameof(LibraryViewTitle));
@@ -1313,7 +1306,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private async void MarkBookAsRead(ComicBookListItemViewModel book)
     {
         var lastPage = Math.Max(0, book.ComicBook.PageCount - 1);
-        var progress = new ReadingProgress(book.ComicBook.Id, lastPage, DateTimeOffset.UtcNow);
+        var progress = CreateReadingProgress(book.ComicBook, lastPage, DateTimeOffset.UtcNow);
         await _progressRepository.SaveAsync(progress);
         book.SetProgress(progress);
         _progressMap[progress.ComicBookId] = progress;
@@ -1427,7 +1420,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     private async Task SaveStartedProgressAsync(ComicBookListItemViewModel book)
     {
-        var progress = new ReadingProgress(book.ComicBook.Id, 0, DateTimeOffset.UtcNow);
+        var progress = CreateReadingProgress(book.ComicBook, 0, DateTimeOffset.UtcNow);
         await _progressRepository.SaveAsync(progress);
         book.SetProgress(progress);
         _progressMap[progress.ComicBookId] = progress;
@@ -1619,11 +1612,6 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
     private static string GetSeriesVariantKey(ComicBookListItemViewModel book)
     {
         var path = book.FilePath;
-        if (ComicArchiveLocator.TrySplitNestedArchivePath(path, out var outerArchivePath, out _))
-        {
-            return $"archive:{outerArchivePath}";
-        }
-
         var physicalPath = ComicArchiveLocator.GetPhysicalArchivePath(path);
         var fileName = Path.GetFileName(physicalPath);
         var lowerName = fileName.ToLowerInvariant();
@@ -2282,16 +2270,21 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         if (IsCurrentPageBookmarked)
         {
             await _bookmarkRepository.DeleteForPageAsync(SelectedBook.ComicBook.Id, _currentPageIndex);
-            _currentBookBookmarks.RemoveAll(b => b.PageNumber == _currentPageIndex);
+            _currentBookBookmarks.RemoveAll(b => b.PageIndex == _currentPageIndex);
         }
         else
         {
+            var now = DateTimeOffset.UtcNow;
             var bookmark = new Bookmark(
                 Guid.NewGuid(),
+                Guid.NewGuid().ToString("D"),
                 SelectedBook.ComicBook.Id,
+                SelectedBook.ComicBook.SyncId,
                 _currentPageIndex,
                 null,
-                DateTimeOffset.UtcNow);
+                now,
+                now,
+                null);
             await _bookmarkRepository.AddAsync(bookmark);
             _currentBookBookmarks.Add(bookmark);
         }
@@ -2651,7 +2644,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     private static bool IsUnsupportedReaderFormat(ComicFormat format)
     {
-        return format is ComicFormat.Epub;
+        return false;
     }
 
     private static string GetUnreadableBookMessage(ComicBook book)
@@ -2661,7 +2654,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             return $"{book.Format} detected, but this format is not supported yet.";
         }
 
-        return book.Format is ComicFormat.Zip or ComicFormat.SevenZip
+        return book.Format is ComicFormat.Zip
             ? $"This {book.Format} archive does not contain readable image pages."
             : "No readable pages found.";
     }
@@ -2866,11 +2859,30 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         var selectedBook = SelectedBook;
         if (selectedBook is null) return;
 
-        var progress = new ReadingProgress(selectedBook.ComicBook.Id, CurrentPageIndex, DateTimeOffset.UtcNow);
+        var progress = CreateReadingProgress(selectedBook.ComicBook, CurrentPageIndex, DateTimeOffset.UtcNow);
         await Task.Run(() => _progressRepository.SaveAsync(progress));
         selectedBook.SetProgress(progress);
         _progressMap[progress.ComicBookId] = progress;
         NotifyLibrarySummaryProps();
+    }
+
+    private static ReadingProgress CreateReadingProgress(ComicBook comicBook, int pageIndex, DateTimeOffset updatedAt)
+    {
+        var totalPages = Math.Max(0, comicBook.PageCount);
+        var clampedPageIndex = totalPages <= 0
+            ? 0
+            : Math.Clamp(pageIndex, 0, totalPages - 1);
+        var status = totalPages > 0 && clampedPageIndex >= totalPages - 1
+            ? ReadingStatus.Completed
+            : ReadingStatus.InProgress;
+
+        return new ReadingProgress(
+            comicBook.Id,
+            comicBook.SyncId,
+            clampedPageIndex,
+            totalPages,
+            status,
+            updatedAt);
     }
 
     public void Dispose()
@@ -2931,8 +2943,6 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         RaisePropertyChanged(nameof(IsCbzFilterActive));
         RaisePropertyChanged(nameof(IsZipFilterActive));
         RaisePropertyChanged(nameof(IsPdfFilterActive));
-        RaisePropertyChanged(nameof(IsCbrFilterActive));
-        RaisePropertyChanged(nameof(IsSevenZipFilterActive));
     }
 
     private void NotifyAllDirectionProps()

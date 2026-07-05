@@ -257,16 +257,6 @@
                     Margin="0,0,4,4"
                     IsChecked="{Binding IsPdfFilterActive, Mode=OneWay}"
                     Command="{Binding TogglePdfFilterCommand}" />
-      <ToggleButton Content="CBR"
-                    Classes="filterChip"
-                    Margin="0,0,4,4"
-                    IsChecked="{Binding IsCbrFilterActive, Mode=OneWay}"
-                    Command="{Binding ToggleCbrFilterCommand}" />
-      <ToggleButton Content="7Z"
-                    Classes="filterChip"
-                    Margin="0,0,4,4"
-                    IsChecked="{Binding IsSevenZipFilterActive, Mode=OneWay}"
-                    Command="{Binding ToggleSevenZipFilterCommand}" />
     </WrapPanel>
 
     <StackPanel Grid.Row="3"

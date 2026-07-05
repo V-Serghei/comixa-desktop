@@ -2,5 +2,8 @@ namespace Comixa.Core.Models;
 
 public sealed record ReadingProgress(
     Guid ComicBookId,
-    int PageNumber,
+    string ComicSyncId,
+    int PageIndex,
+    int TotalPages,
+    ReadingStatus Status,
     DateTimeOffset UpdatedAt);

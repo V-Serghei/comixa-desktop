@@ -10,5 +10,5 @@ public interface IBookmarkRepository
 
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 
-    Task DeleteForPageAsync(Guid comicBookId, int pageNumber, CancellationToken cancellationToken = default);
+    Task DeleteForPageAsync(Guid comicBookId, int pageIndex, CancellationToken cancellationToken = default);
 }
